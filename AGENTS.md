@@ -1,4 +1,4 @@
-# AlmostHumanAfterAll
+# Ficino
 
 macOS menu bar app that listens to Apple Music track changes and delivers Claude-powered commentary via floating notifications.
 
@@ -10,7 +10,7 @@ macOS menu bar app that listens to Apple Music track changes and delivers Claude
 ./build.sh          # builds + runs with logs in terminal (Ctrl+C to quit)
 ```
 
-Binary output: `./build/Build/Products/Debug/AlmostHumanAfterAll.app`
+Binary output: `./build/Build/Products/Debug/Ficino.app`
 
 ## Architecture
 
@@ -25,10 +25,10 @@ Apple Music → DistributedNotificationCenter → MusicListener → AppState →
 ## Project Structure
 
 ```
-AlmostHumanAfterAll/
-├── AlmostHumanAfterAllApp.swift    # @main, MenuBarExtra scene, auto-starts services
+Ficino/
+├── FicinoApp.swift    # @main, MenuBarExtra scene, auto-starts services
 ├── Info.plist                      # LSUIElement=YES (no Dock icon), AppleEvents description
-├── AlmostHumanAfterAll.entitlements # Sandbox OFF
+├── Ficino.entitlements # Sandbox OFF
 ├── Assets.xcassets/
 ├── Models/
 │   ├── TrackInfo.swift             # Parsed from DistributedNotification userInfo

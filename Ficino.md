@@ -1,4 +1,4 @@
-# AlmostHumanAfterAll
+# Ficino
 
 A macOS menu bar app that listens to Apple Music and delivers Claude-powered commentary on every track you play.
 

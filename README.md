@@ -1,10 +1,10 @@
-# AlmostHumanAfterAll
+# Ficino
 
 A macOS menu bar app that listens to Apple Music and delivers Claude-powered commentary on every track you play.
 
 ## What it does
 
-When a song starts playing in Apple Music, AlmostHumanAfterAll catches the track change, sends the metadata to Claude via the CLI, and pops a native macOS notification with Claude's take on the song.
+When a song starts playing in Apple Music, Ficino catches the track change, sends the metadata to Claude via the CLI, and pops a native macOS notification with Claude's take on the song.
 
 ## Personalities
 
@@ -27,7 +27,7 @@ Pick a vibe from the menu bar:
 
 ## Building
 
-Open `AlmostHumanAfterAll.xcodeproj` in Xcode and build, or run:
+Open `Ficino.xcodeproj` in Xcode and build, or run:
 
 ```sh
 ./build.sh

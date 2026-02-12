@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A10001 /* AlmostHumanAfterAllApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001 /* AlmostHumanAfterAllApp.swift */; };
+		A10001 /* FicinoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001 /* FicinoApp.swift */; };
 		A10002 /* TrackInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10002 /* TrackInfo.swift */; };
 		A10003 /* CommentEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10003 /* CommentEntry.swift */; };
 		A10004 /* Personality.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10004 /* Personality.swift */; };
@@ -28,7 +28,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		B10001 /* AlmostHumanAfterAllApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlmostHumanAfterAllApp.swift; sourceTree = "<group>"; };
+		B10001 /* FicinoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FicinoApp.swift; sourceTree = "<group>"; };
 		B10002 /* TrackInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackInfo.swift; sourceTree = "<group>"; };
 		B10003 /* CommentEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommentEntry.swift; sourceTree = "<group>"; };
 		B10004 /* Personality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Personality.swift; sourceTree = "<group>"; };
@@ -44,11 +44,11 @@
 		B10014 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B10015 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B10016 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		B10017 /* AlmostHumanAfterAll.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AlmostHumanAfterAll.entitlements; sourceTree = "<group>"; };
+		B10017 /* Ficino.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Ficino.entitlements; sourceTree = "<group>"; };
 		B10018 /* CommentaryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommentaryService.swift; sourceTree = "<group>"; };
 		B10019 /* AIEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIEngine.swift; sourceTree = "<group>"; };
 		B10020 /* AppleIntelligenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleIntelligenceService.swift; sourceTree = "<group>"; };
-		C10001 /* AlmostHumanAfterAll.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AlmostHumanAfterAll.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C10001 /* Ficino.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ficino.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -65,23 +65,23 @@
 		E10001 = {
 			isa = PBXGroup;
 			children = (
-				E10002 /* AlmostHumanAfterAll */,
+				E10002 /* Ficino */,
 				E10006 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		E10002 /* AlmostHumanAfterAll */ = {
+		E10002 /* Ficino */ = {
 			isa = PBXGroup;
 			children = (
-				B10001 /* AlmostHumanAfterAllApp.swift */,
+				B10001 /* FicinoApp.swift */,
 				B10016 /* Info.plist */,
-				B10017 /* AlmostHumanAfterAll.entitlements */,
+				B10017 /* Ficino.entitlements */,
 				B10015 /* Assets.xcassets */,
 				E10003 /* Models */,
 				E10004 /* Services */,
 				E10005 /* Views */,
 			);
-			path = AlmostHumanAfterAll;
+			path = Ficino;
 			sourceTree = "<group>";
 		};
 		E10003 /* Models */ = {
@@ -124,7 +124,7 @@
 		E10006 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				C10001 /* AlmostHumanAfterAll.app */,
+				C10001 /* Ficino.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -132,9 +132,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		F10001 /* AlmostHumanAfterAll */ = {
+		F10001 /* Ficino */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = G10003 /* Build configuration list for PBXNativeTarget "AlmostHumanAfterAll" */;
+			buildConfigurationList = G10003 /* Build configuration list for PBXNativeTarget "Ficino" */;
 			buildPhases = (
 				F10002 /* Sources */,
 				D10001 /* Frameworks */,
@@ -144,9 +144,9 @@
 			);
 			dependencies = (
 			);
-			name = AlmostHumanAfterAll;
-			productName = AlmostHumanAfterAll;
-			productReference = C10001 /* AlmostHumanAfterAll.app */;
+			name = Ficino;
+			productName = Ficino;
+			productReference = C10001 /* Ficino.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -164,7 +164,7 @@
 					};
 				};
 			};
-			buildConfigurationList = G10001 /* Build configuration list for PBXProject "AlmostHumanAfterAll" */;
+			buildConfigurationList = G10001 /* Build configuration list for PBXProject "Ficino" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -177,7 +177,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				F10001 /* AlmostHumanAfterAll */,
+				F10001 /* Ficino */,
 			);
 		};
 /* End PBXProject section */
@@ -198,7 +198,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10001 /* AlmostHumanAfterAllApp.swift in Sources */,
+				A10001 /* FicinoApp.swift in Sources */,
 				A10002 /* TrackInfo.swift in Sources */,
 				A10003 /* CommentEntry.swift in Sources */,
 				A10004 /* Personality.swift in Sources */,
@@ -283,6 +283,29 @@
 			};
 			name = Debug;
 		};
+		G10004 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Ficino/Ficino.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Ficino/Info.plist;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ficino;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
 		G10005 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -337,46 +360,23 @@
 			};
 			name = Release;
 		};
-		G10004 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = AlmostHumanAfterAll/AlmostHumanAfterAll.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = AlmostHumanAfterAll/Info.plist;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.almosthumanafterall;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-			};
-			name = Debug;
-		};
 		G10006 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = AlmostHumanAfterAll/AlmostHumanAfterAll.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Ficino/Ficino.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = AlmostHumanAfterAll/Info.plist;
+				INFOPLIST_FILE = Ficino/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.almosthumanafterall;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ficino;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -386,7 +386,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		G10001 /* Build configuration list for PBXProject "AlmostHumanAfterAll" */ = {
+		G10001 /* Build configuration list for PBXProject "Ficino" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				G10002 /* Debug */,
@@ -395,7 +395,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		G10003 /* Build configuration list for PBXNativeTarget "AlmostHumanAfterAll" */ = {
+		G10003 /* Build configuration list for PBXNativeTarget "Ficino" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				G10004 /* Debug */,
@@ -405,7 +405,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
 	};
 	rootObject = F10004 /* Project object */;
 }

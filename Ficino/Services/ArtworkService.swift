@@ -48,7 +48,7 @@ final class ArtworkService {
         }
 
         let tempURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("almosthumancoverart_\(UUID().uuidString).png")
+            .appendingPathComponent("ficino_coverart_\(UUID().uuidString).png")
 
         do {
             try pngData.write(to: tempURL)

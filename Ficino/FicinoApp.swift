@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct AlmostHumanAfterAllApp: App {
+struct FicinoApp: App {
     @StateObject private var appState = AppState()
 
     var body: some Scene {
@@ -10,7 +10,7 @@ struct AlmostHumanAfterAllApp: App {
                 .environmentObject(appState)
                 .frame(width: 380, height: 400)
         } label: {
-            Label("AlmostHumanAfterAll", systemImage: "waveform")
+            Label("Ficino", systemImage: "waveform")
         }
         .menuBarExtraStyle(.window)
     }

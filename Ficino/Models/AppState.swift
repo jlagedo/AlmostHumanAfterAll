@@ -100,16 +100,16 @@ final class AppState: ObservableObject {
     func start() {
         guard !hasStarted else { return }
         hasStarted = true
-        NSLog("[AlmostHuman] Starting services...")
+        NSLog("[Ficino] Starting services...")
 
         // First-run validation: check Claude CLI is accessible (only when using Claude engine)
         if engine == .claude {
             Task {
                 do {
                     try await claudeService.validateSetup()
-                    NSLog("[AlmostHuman] Claude CLI validation passed")
+                    NSLog("[Ficino] Claude CLI validation passed")
                 } catch {
-                    NSLog("[AlmostHuman] Setup validation failed: %@", error.localizedDescription)
+                    NSLog("[Ficino] Setup validation failed: %@", error.localizedDescription)
                     setupError = error.localizedDescription
                 }
             }
@@ -117,7 +117,7 @@ final class AppState: ObservableObject {
 
         musicListener.onTrackChange = { [weak self] track, playerState in
             guard let self else { return }
-            NSLog("[AlmostHuman] Track change: %@ - %@ (state: %@)", track.name, track.artist, playerState)
+            NSLog("[Ficino] Track change: %@ - %@ (state: %@)", track.name, track.artist, playerState)
             Task { @MainActor in
                 self.handleTrackChange(track: track, playerState: playerState)
             }

@@ -135,7 +135,7 @@ struct SettingsView: View {
                         appState.stop()
                         NSApplication.shared.terminate(nil)
                     } label: {
-                        Text("Quit AlmostHumanAfterAll")
+                        Text("Quit Ficino")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)

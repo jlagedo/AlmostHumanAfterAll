@@ -5,6 +5,6 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>AlmostHumanAfterAll needs access to Apple Music to fetch album artwork for your currently playing track.</string>
+	<string>Ficino needs access to Apple Music to fetch album artwork for your currently playing track.</string>
 </dict>
 </plist>
