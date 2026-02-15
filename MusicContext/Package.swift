@@ -5,16 +5,12 @@ import PackageDescription
 
 let package = Package(
     name: "MusicContext",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS(.v14)],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "MusicContext",
             targets: ["MusicContext"]
-        ),
-        .executable(
-          name: "music-context-cli",
-          targets: ["MusicContextCLI"]
         )
 
     ],
@@ -28,10 +24,6 @@ let package = Package(
         .testTarget(
             name: "MusicContextTests",
             dependencies: ["MusicContext"]
-        ),
-        .executableTarget(
-          name: "MusicContextCLI",
-          dependencies: ["MusicContext"]
         )
     ]
 )

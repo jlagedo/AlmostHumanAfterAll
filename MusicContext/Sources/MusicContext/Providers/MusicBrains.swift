@@ -9,6 +9,8 @@ public enum MusicContextError: Error, CustomStringConvertible {
     case rateLimited(retryAfterSeconds: Int?)
     case noResults(query: String)
     case invalidURL(String)
+    case appleMusicUnavailable
+    case invalidCatalogID(String)
 
     public var description: String {
         switch self {
@@ -24,6 +26,10 @@ public enum MusicContextError: Error, CustomStringConvertible {
             return "No results for: \(query)"
         case .invalidURL(let url):
             return "Invalid URL: \(url)"
+        case .appleMusicUnavailable:
+            return "Apple Music/MusicKit is not available on this system"
+        case .invalidCatalogID(let id):
+            return "Invalid Apple Music catalog ID: \(id)"
         }
     }
 }

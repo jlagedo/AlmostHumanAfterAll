@@ -26,9 +26,11 @@
 		A10017 /* AIEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10019 /* AIEngine.swift */; };
 		A10018 /* AppleIntelligenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10020 /* AppleIntelligenceService.swift */; };
 		AECBA0C02F3ED892000EAF76 /* MusicContext in Frameworks */ = {isa = PBXBuildFile; productRef = AECBA0BF2F3ED892000EAF76 /* MusicContext */; };
+		AEF2E4012F411100009E0C54 /* MusicContext in Frameworks */ = {isa = PBXBuildFile; productRef = AEF2E4022F411100009E0C54 /* MusicContext */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		AEF2E3E02F411050009E0C54 /* MusicContextGenerator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MusicContextGenerator.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B10001 /* FicinoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FicinoApp.swift; sourceTree = "<group>"; };
 		B10002 /* TrackInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackInfo.swift; sourceTree = "<group>"; };
 		B10003 /* CommentEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommentEntry.swift; sourceTree = "<group>"; };
@@ -54,9 +56,18 @@
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AEDE2C322F3E761B009D794D /* docs */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = docs; sourceTree = "<group>"; };
+		AEF2E3E12F411051009E0C54 /* MusicContextGenerator */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = MusicContextGenerator; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		AEF2E3DD2F411050009E0C54 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AEF2E4012F411100009E0C54 /* MusicContext in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D10001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -73,6 +84,7 @@
 			children = (
 				AEDE2C322F3E761B009D794D /* docs */,
 				E10002 /* Ficino */,
+				AEF2E3E12F411051009E0C54 /* MusicContextGenerator */,
 				E10006 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -132,6 +144,7 @@
 			isa = PBXGroup;
 			children = (
 				C10001 /* Ficino.app */,
+				AEF2E3E02F411050009E0C54 /* MusicContextGenerator.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -139,6 +152,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		AEF2E3DF2F411050009E0C54 /* MusicContextGenerator */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AEF2E3E82F411051009E0C54 /* Build configuration list for PBXNativeTarget "MusicContextGenerator" */;
+			buildPhases = (
+				AEF2E3DC2F411050009E0C54 /* Sources */,
+				AEF2E3DD2F411050009E0C54 /* Frameworks */,
+				AEF2E3DE2F411050009E0C54 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AEF2E3E12F411051009E0C54 /* MusicContextGenerator */,
+			);
+			name = MusicContextGenerator;
+			packageProductDependencies = (
+				AEF2E4022F411100009E0C54 /* MusicContext */,
+			);
+			productName = MusicContextGenerator;
+			productReference = AEF2E3E02F411050009E0C54 /* MusicContextGenerator.app */;
+			productType = "com.apple.product-type.application";
+		};
 		F10001 /* Ficino */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = G10003 /* Build configuration list for PBXNativeTarget "Ficino" */;
@@ -163,9 +199,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 1500;
+				LastSwiftUpdateCheck = 2620;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
+					AEF2E3DF2F411050009E0C54 = {
+						CreatedOnToolsVersion = 26.2;
+					};
 					F10001 = {
 						CreatedOnToolsVersion = 15.0;
 					};
@@ -188,11 +227,19 @@
 			projectRoot = "";
 			targets = (
 				F10001 /* Ficino */,
+				AEF2E3DF2F411050009E0C54 /* MusicContextGenerator */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		AEF2E3DE2F411050009E0C54 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F10003 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -204,6 +251,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		AEF2E3DC2F411050009E0C54 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F10002 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -231,6 +285,78 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		AEF2E3E92F411051009E0C54 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MusicContextGenerator/MusicContextGenerator.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = adasdadas;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jlagedo.ficino;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AEF2E3EA2F411051009E0C54 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MusicContextGenerator/MusicContextGenerator.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = adasdadas;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jlagedo.ficino;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 		G10002 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -265,7 +391,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = VPS2J2F4X3;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -288,6 +416,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -301,7 +430,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = VPS2J2F4X3;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Ficino/Info.plist;
 				INFOPLIST_KEY_LSUIElement = YES;
@@ -353,7 +482,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = VPS2J2F4X3;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -369,6 +500,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -381,7 +513,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = VPS2J2F4X3;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Ficino/Info.plist;
 				INFOPLIST_KEY_LSUIElement = YES;
@@ -402,6 +534,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		AEF2E3E82F411051009E0C54 /* Build configuration list for PBXNativeTarget "MusicContextGenerator" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AEF2E3E92F411051009E0C54 /* Debug */,
+				AEF2E3EA2F411051009E0C54 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		G10001 /* Build configuration list for PBXProject "Ficino" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -431,6 +572,10 @@
 
 /* Begin XCSwiftPackageProductDependency section */
 		AECBA0BF2F3ED892000EAF76 /* MusicContext */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MusicContext;
+		};
+		AEF2E4022F411100009E0C54 /* MusicContext */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MusicContext;
 		};
