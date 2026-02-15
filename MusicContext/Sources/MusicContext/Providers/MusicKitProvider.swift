@@ -70,7 +70,7 @@ public actor MusicKitProvider {
         guard let artist = response.items.first else {
             throw MusicContextError.noResults(query: id.rawValue)
         }
-        return try await artist.with(.genres, .topSongs, .similarArtists, .fullAlbums, .latestRelease)
+        return try await artist.with(.genres, .topSongs, .similarArtists, .fullAlbums, .latestRelease, .appearsOnAlbums, .compilationAlbums, .featuredAlbums, .liveAlbums, .featuredPlaylists)
     }
 
     // MARK: - Private

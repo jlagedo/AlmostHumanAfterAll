@@ -105,127 +105,107 @@ private func ensureAuthorized() async throws {
 
 // MARK: - Display helpers
 
+private func opt(_ value: Any?) -> String {
+    guard let value else { return "nil" }
+    return "\(value)"
+}
+
+private func optDate(_ date: Date?, time: Bool = false) -> String {
+    guard let date else { return "nil" }
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    if time { formatter.timeStyle = .short }
+    return formatter.string(from: date)
+}
+
 private func printSong(_ song: Song) {
     print("── Track (Apple Music) ────────────────────")
     print("  ID:            \(song.id)")
     print("  Title:         \(song.title)")
     print("  Artist:        \(song.artistName)")
-    if let artistURL = song.artistURL {
-        print("  Artist URL:    \(artistURL)")
-    }
-    if let albumTitle = song.albumTitle {
-        print("  Album:         \(albumTitle)")
-    }
-    if let trackNumber = song.trackNumber {
-        print("  Track #:       \(trackNumber)")
-    }
-    if let discNumber = song.discNumber {
-        print("  Disc #:        \(discNumber)")
-    }
+    print("  Artist URL:    \(opt(song.artistURL))")
+    print("  Album:         \(opt(song.albumTitle))")
+    print("  Track #:       \(opt(song.trackNumber))")
+    print("  Disc #:        \(opt(song.discNumber))")
     if let duration = song.duration {
         let seconds = Int(duration)
-        print("  Duration:      \(seconds / 60):\(String(format: "%02d", seconds % 60))")
+        let ms = Int(duration * 1000)
+        print("  Duration:      \(seconds / 60):\(String(format: "%02d", seconds % 60)) (\(ms)ms)")
+    } else {
+        print("  Duration:      nil")
     }
-    if !song.genreNames.isEmpty {
-        print("  Genres:        \(song.genreNames.joined(separator: ", "))")
-    }
-    if let isrc = song.isrc {
-        print("  ISRC:          \(isrc)")
-    }
-    if let composer = song.composerName {
-        print("  Composer:      \(composer)")
-    }
-    if let releaseDate = song.releaseDate {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        print("  Released:      \(formatter.string(from: releaseDate))")
-    }
-    if let contentRating = song.contentRating {
-        print("  Rating:        \(contentRating)")
-    }
+    print("  Genres:        \(song.genreNames.isEmpty ? "(none)" : song.genreNames.joined(separator: ", "))")
+    print("  ISRC:          \(opt(song.isrc))")
+    print("  Composer:      \(opt(song.composerName))")
+    print("  Released:      \(optDate(song.releaseDate))")
+    print("  Rating:        \(opt(song.contentRating))")
     print("  Has Lyrics:    \(song.hasLyrics)")
-    if let url = song.url {
-        print("  URL:           \(url)")
-    }
-    if let artwork = song.artwork {
-        if let url = artwork.url(width: 600, height: 600) {
-            print("  Artwork:       \(url)")
-        }
+
+    // Library & playback stats
+    print("  Play Count:    \(opt(song.playCount))")
+    print("  Last Played:   \(optDate(song.lastPlayedDate, time: true))")
+    print("  Added to Lib:  \(optDate(song.libraryAddedDate))")
+
+    print("  URL:           \(opt(song.url))")
+    if let artwork = song.artwork, let url = artwork.url(width: 600, height: 600) {
+        print("  Artwork:       \(url)")
+    } else {
+        print("  Artwork:       nil")
     }
 
     // Audio quality
     if let audioVariants = song.audioVariants {
-        print("  Audio:         \(audioVariants.map { "\($0)" }.joined(separator: ", "))")
+        print("  Audio:         \(audioVariants.isEmpty ? "(none)" : audioVariants.map { "\($0)" }.joined(separator: ", "))")
+    } else {
+        print("  Audio:         nil")
     }
-    if let isADM = song.isAppleDigitalMaster {
-        print("  Digital Master: \(isADM)")
-    }
+    print("  Digital Master: \(opt(song.isAppleDigitalMaster))")
 
     // Preview
-    if let previews = song.previewAssets, !previews.isEmpty {
-        for preview in previews {
-            if let previewURL = preview.url {
-                print("  Preview:       \(previewURL)")
+    if let previews = song.previewAssets {
+        if previews.isEmpty {
+            print("  Preview:       (none)")
+        } else {
+            for preview in previews {
+                print("  Preview URL:   \(opt(preview.url))")
             }
         }
+    } else {
+        print("  Preview:       nil")
     }
 
     // Editorial notes
-    if let notes = song.editorialNotes {
-        if let short = notes.short {
-            print("  Notes:         \(short)")
-        }
-        if let standard = notes.standard {
-            print("  Description:   \(standard)")
-        }
-    }
+    print("  Notes (short): \(opt(song.editorialNotes?.short))")
+    print("  Notes (std):   \(opt(song.editorialNotes?.standard))")
 
     // Classical music
-    if let workName = song.workName {
-        print("  Work:          \(workName)")
-    }
-    if let movementName = song.movementName {
-        print("  Movement:      \(movementName)")
-    }
-    if let movementNumber = song.movementNumber {
-        print("  Movement #:    \(movementNumber)")
-    }
-    if let movementCount = song.movementCount {
-        print("  Movements:     \(movementCount)")
-    }
-    if let attribution = song.attribution {
-        print("  Attribution:   \(attribution)")
-    }
+    print("  Work:          \(opt(song.workName))")
+    print("  Movement:      \(opt(song.movementName))")
+    print("  Movement #:    \(opt(song.movementNumber))")
+    print("  Movements:     \(opt(song.movementCount))")
+    print("  Attribution:   \(opt(song.attribution))")
 
     // Playback
-  if song.playParameters != nil {
-        print("  Playable:      true")
-    }
+    print("  Playable:      \(song.playParameters != nil)")
 
-    // Relationships (if loaded)
-    if let artists = song.artists {
-        let names = artists.map { "\($0.name) (\($0.id))" }.joined(separator: ", ")
-        print("  Artists:       \(names)")
-    }
-    if let albums = song.albums {
-        let titles = albums.map { "\($0.title) (\($0.id))" }.joined(separator: ", ")
-        print("  Albums:        \(titles)")
-    }
-    if let composers = song.composers {
-        let names = composers.map { "\($0.name) (\($0.id))" }.joined(separator: ", ")
-        print("  Composers:     \(names)")
-    }
-    if let genres = song.genres {
-        let names = genres.map { "\($0.name) (\($0.id))" }.joined(separator: ", ")
-        print("  Genre IDs:     \(names)")
-    }
-    if let musicVideos = song.musicVideos {
-        let titles = musicVideos.map { "\($0.title) (\($0.id))" }.joined(separator: ", ")
-        print("  Music Videos:  \(titles)")
-    }
-    if let station = song.station {
-        print("  Station:       \(station.name) (\(station.id))")
-    }
+    // Relationships
+    let artists = song.artists.map { $0.map { "\($0.name) (\($0.id))" }.joined(separator: ", ") }
+    print("  Artists:       \(opt(artists))")
+
+    let albums = song.albums.map { $0.map { "\($0.title) (\($0.id))" }.joined(separator: ", ") }
+    print("  Albums:        \(opt(albums))")
+
+    let composers = song.composers.map { $0.map { "\($0.name) (\($0.id))" }.joined(separator: ", ") }
+    print("  Composers:     \(opt(composers))")
+
+    let genres = song.genres.map { $0.map { "\($0.name) (\($0.id))" }.joined(separator: ", ") }
+    print("  Genre IDs:     \(opt(genres))")
+
+    let musicVideos = song.musicVideos.map { $0.map { "\($0.title) (\($0.id))" }.joined(separator: ", ") }
+    print("  Music Videos:  \(opt(musicVideos))")
+
+    let station = song.station.map { "\($0.name) (\($0.id))" }
+    print("  Station:       \(opt(station))")
 
     print()
 }
@@ -320,106 +300,175 @@ private func printAlbum(_ album: Album) {
     print("  ID:            \(album.id)")
     print("  Title:         \(album.title)")
     print("  Artist:        \(album.artistName)")
-    if let releaseDate = album.releaseDate {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        print("  Released:      \(formatter.string(from: releaseDate))")
+    print("  Artist URL:    \(opt(album.artistURL))")
+    if let artwork = album.artwork, let url = artwork.url(width: 600, height: 600) {
+        print("  Artwork:       \(url)")
+    } else {
+        print("  Artwork:       nil")
     }
-    if !album.genreNames.isEmpty {
-        print("  Genres:        \(album.genreNames.joined(separator: ", "))")
-    }
+    print("  Released:      \(optDate(album.releaseDate))")
+    print("  Genres:        \(album.genreNames.isEmpty ? "(none)" : album.genreNames.joined(separator: ", "))")
     print("  Track Count:   \(album.trackCount)")
-    if let contentRating = album.contentRating {
-        print("  Rating:        \(contentRating)")
-    }
-    if let isCompilation = album.isCompilation {
-        print("  Compilation:   \(isCompilation)")
-    }
-    if let isSingle = album.isSingle {
-        print("  Single:        \(isSingle)")
-    }
-    if let isComplete = album.isComplete {
-        print("  Complete:      \(isComplete)")
-    }
-    if let copyright = album.copyright {
-        print("  Copyright:     \(copyright)")
-    }
-    if let upc = album.upc {
-        print("  UPC:           \(upc)")
-    }
-    if let url = album.url {
-        print("  URL:           \(url)")
-    }
-    if let notes = album.editorialNotes {
-        if let short = notes.short {
-            print("  Notes:         \(short)")
-        }
-        if let standard = notes.standard {
-            // Truncate long descriptions for readability
-            let text = standard.count > 500 ? String(standard.prefix(500)) + "…" : standard
-            print("  Description:   \(text)")
-        }
+    print("  Rating:        \(opt(album.contentRating))")
+    print("  Compilation:   \(opt(album.isCompilation))")
+    print("  Single:        \(opt(album.isSingle))")
+    print("  Complete:      \(opt(album.isComplete))")
+    print("  Copyright:     \(opt(album.copyright))")
+    print("  UPC:           \(opt(album.upc))")
+    print("  URL:           \(opt(album.url))")
+    print("  Notes (short): \(opt(album.editorialNotes?.short))")
+    if let standard = album.editorialNotes?.standard {
+        let text = standard.count > 500 ? String(standard.prefix(500)) + "..." : standard
+        print("  Notes (std):   \(text)")
+    } else {
+        print("  Notes (std):   nil")
     }
     if let audioVariants = album.audioVariants {
-        print("  Audio:         \(audioVariants.map { "\($0)" }.joined(separator: ", "))")
+        print("  Audio:         \(audioVariants.isEmpty ? "(none)" : audioVariants.map { "\($0)" }.joined(separator: ", "))")
+    } else {
+        print("  Audio:         nil")
     }
-    if let recordLabels = album.recordLabels {
-        let names = recordLabels.map { $0.name }.joined(separator: ", ")
-        print("  Labels:        \(names)")
-    }
+    print("  Playable:      \(album.playParameters != nil)")
+
+    // Relationships
+    let labels = album.recordLabels.map { $0.map { $0.name }.joined(separator: ", ") }
+    print("  Labels:        \(labels ?? "nil")")
+
     if let tracks = album.tracks {
-        print("  Tracklist:")
+        print("  Tracklist (\(tracks.count) tracks):")
         for track in tracks {
             let num = track.trackNumber ?? 0
             print("    \(String(format: "%2d", num)). \(track.title)")
         }
+    } else {
+        print("  Tracklist:     nil")
     }
-    if let related = album.relatedAlbums, !related.isEmpty {
-        let titles = related.prefix(5).map { $0.title }.joined(separator: ", ")
-        print("  Related:       \(titles)")
+
+    if let related = album.relatedAlbums {
+        print("  Related Albums (\(related.count)):")
+        for rel in related.prefix(10) {
+            print("    - \(rel.title) by \(rel.artistName)")
+        }
+        if related.count > 10 { print("    ... and \(related.count - 10) more") }
+    } else {
+        print("  Related:       nil")
     }
+
+    if let appearsOn = album.appearsOn {
+        print("  Appears On (\(appearsOn.count) playlists):")
+        for playlist in appearsOn.prefix(10) {
+            print("    - \(playlist.name)")
+        }
+        if appearsOn.count > 10 { print("    ... and \(appearsOn.count - 10) more") }
+    } else {
+        print("  Appears On:    nil")
+    }
+
     print()
+}
+
+private func printAlbumList(_ title: String, _ albums: MusicItemCollection<Album>?) {
+    guard let albums else {
+        print("  \(title): nil")
+        return
+    }
+    if albums.isEmpty {
+        print("  \(title): (none)")
+        return
+    }
+    print("  \(title) (\(albums.count)):")
+    for album in albums.prefix(15) {
+        let year = album.releaseDate.map { Calendar.current.component(.year, from: $0) }
+        let yearStr = year.map { " (\($0))" } ?? ""
+        print("    - \(album.title)\(yearStr)")
+    }
+    if albums.count > 15 { print("    ... and \(albums.count - 15) more") }
 }
 
 private func printArtist(_ artist: Artist) {
     print("── Artist Detail ──────────────────────────")
     print("  ID:            \(artist.id)")
     print("  Name:          \(artist.name)")
-    if let url = artist.url {
-        print("  URL:           \(url)")
+    print("  URL:           \(opt(artist.url))")
+    if let artwork = artist.artwork, let url = artwork.url(width: 600, height: 600) {
+        print("  Artwork:       \(url)")
+    } else {
+        print("  Artwork:       nil")
     }
-    if let genreNames = artist.genreNames, !genreNames.isEmpty {
-        print("  Genres:        \(genreNames.joined(separator: ", "))")
+    if let genreNames = artist.genreNames {
+        print("  Genres:        \(genreNames.isEmpty ? "(none)" : genreNames.joined(separator: ", "))")
+    } else {
+        print("  Genres:        nil")
     }
-    if let notes = artist.editorialNotes {
-        if let short = notes.short {
-            print("  Bio (short):   \(short)")
+    print("  Bio (short):   \(opt(artist.editorialNotes?.short))")
+    if let standard = artist.editorialNotes?.standard {
+        let text = standard.count > 500 ? String(standard.prefix(500)) + "..." : standard
+        print("  Bio (std):     \(text)")
+    } else {
+        print("  Bio (std):     nil")
+    }
+
+    // Top Songs
+    if let topSongs = artist.topSongs {
+        if topSongs.isEmpty {
+            print("  Top Songs:     (none)")
+        } else {
+            print("  Top Songs (\(topSongs.count)):")
+            for song in topSongs.prefix(10) {
+                print("    - \(song.title) (\(song.albumTitle ?? "nil"))")
+            }
+            if topSongs.count > 10 { print("    ... and \(topSongs.count - 10) more") }
         }
-        if let standard = notes.standard {
-            let text = standard.count > 500 ? String(standard.prefix(500)) + "…" : standard
-            print("  Bio:           \(text)")
-        }
+    } else {
+        print("  Top Songs:     nil")
     }
-    if let topSongs = artist.topSongs, !topSongs.isEmpty {
-        print("  Top Songs:")
-        for song in topSongs.prefix(10) {
-            print("    - \(song.title) (\(song.albumTitle ?? ""))")
-        }
-    }
-    if let similar = artist.similarArtists, !similar.isEmpty {
+
+    // Similar Artists
+    if let similar = artist.similarArtists {
         let names = similar.prefix(10).map { $0.name }.joined(separator: ", ")
-        print("  Similar:       \(names)")
+        print("  Similar:       \(similar.isEmpty ? "(none)" : names)")
+        if similar.count > 10 { print("                 ... and \(similar.count - 10) more") }
+    } else {
+        print("  Similar:       nil")
     }
-    if let latest = artist.latestRelease {
-        print("  Latest:        \(latest.title)")
-    }
-    if let fullAlbums = artist.fullAlbums, !fullAlbums.isEmpty {
-        print("  Discography:")
-        for album in fullAlbums.prefix(15) {
-            let year = album.releaseDate.map { Calendar.current.component(.year, from: $0) }
-            let yearStr = year.map { " (\($0))" } ?? ""
-            print("    - \(album.title)\(yearStr)")
+
+    print("  Latest:        \(opt(artist.latestRelease?.title))")
+
+    // Album categories
+    printAlbumList("Discography", artist.fullAlbums)
+    printAlbumList("Compilations", artist.compilationAlbums)
+    printAlbumList("Live Albums", artist.liveAlbums)
+    printAlbumList("Featured Albums", artist.featuredAlbums)
+
+    // Appears On (show other artist names)
+    if let appearsOn = artist.appearsOnAlbums {
+        if appearsOn.isEmpty {
+            print("  Appears On:    (none)")
+        } else {
+            print("  Appears On (\(appearsOn.count) albums):")
+            for album in appearsOn.prefix(15) {
+                print("    - \(album.title) by \(album.artistName)")
+            }
+            if appearsOn.count > 15 { print("    ... and \(appearsOn.count - 15) more") }
         }
+    } else {
+        print("  Appears On:    nil")
     }
+
+    // Featured Playlists
+    if let playlists = artist.featuredPlaylists {
+        if playlists.isEmpty {
+            print("  Playlists:     (none)")
+        } else {
+            print("  Featured Playlists (\(playlists.count)):")
+            for playlist in playlists.prefix(10) {
+                print("    - \(playlist.name)")
+            }
+            if playlists.count > 10 { print("    ... and \(playlists.count - 10) more") }
+        }
+    } else {
+        print("  Playlists:     nil")
+    }
+
     print()
 }

@@ -52,7 +52,7 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "-p mk &quot;Radiohead&quot; &quot;OK Computer&quot; &quot;Let Down&quot;"
+            argument = "-p mk --id 1440821738"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
