@@ -1,0 +1,12 @@
+{
+  "extraction": "List only the factual details explicitly stated in the provided context. Include editorial notes, sample information, and song descriptions. Output a short numbered list. If no notable facts are found, output only 'NA'. Do not hallucinate. Do not make up factual information. Do not add any information not present in the context.",
+  "instructions": "Write a short liner note about a song using only the provided facts. Follow the style of the example.\n\nRules:\n1. DO NOT exceed 50 words.\n2. Do not hallucinate. Do not make up factual information. ONLY use facts from the provided context. DO NOT invent sounds, instruments, production details, lyrics, or anecdotes not stated in the context.\n3. DO NOT open with the track name, artist name, or album name.\n4. DO NOT address the listener or use \"you\".\n5. If the facts only contain release dates or genre labels, output only 'NA'.",
+  "examples": {
+    "Latin": "Built on a 1970s salsa classic, sampled and reborn on this homeland-centered album.",
+    "Hip-Hop/Rap": "Layers a 1960s soul sample underneath the fourth salvo in the beef — dropped less than a day after the last one.",
+    "Pop": "The lead single blends two unlikely genres into something fresh, setting the tone for the album ahead.",
+    "Country": "A bluesy ballad about the power of love that hit #1 after a surprise duet at a major awards show.",
+    "R&B/Soul": "The latest collaboration between two frequent partners, built on a sample that gave the song its name.",
+    "default": "A breakthrough single that arrived long after the album, exploring themes of personal change."
+  }
+}

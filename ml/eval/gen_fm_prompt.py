@@ -18,6 +18,74 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 INPUT = DATA_DIR / "context_top100.jsonl"
 OUTPUT = DATA_DIR / "eval_output" / "prompts_top100.jsonl"
 
+# Genre-anchored examples — one per bucket, matched to each track's primary genre.
+# Abstract: no artist/song/album names so the model can't copy content verbatim.
+# These ride through to the writing step via the "example" JSONL field.
+GENRE_EXAMPLES = {
+    "Latin": (
+        "[Facts]\n"
+        "1. Samples a 1970s salsa classic.\n"
+        "2. Opens the album as a tribute to the artist's musical roots.\n"
+        "[End of Facts]\n"
+        "Built on a 1970s salsa classic, sampled and reborn on this "
+        "homeland-centered album."
+    ),
+    "Hip-Hop/Rap": (
+        "[Facts]\n"
+        "1. Samples a soul track from the 1960s.\n"
+        "2. Fourth diss track, released less than 24 hours after the previous one.\n"
+        "[End of Facts]\n"
+        "Layers a 1960s soul sample underneath the fourth salvo in the beef — "
+        "dropped less than a day after the last one."
+    ),
+    "Pop": (
+        "[Facts]\n"
+        "1. The lead single for the artist's upcoming album.\n"
+        "2. Blends two genres in an unexpected way.\n"
+        "[End of Facts]\n"
+        "The lead single blends two unlikely genres into something fresh, "
+        "setting the tone for the album ahead."
+    ),
+    "Country": (
+        "[Facts]\n"
+        "1. A bluesy ballad about the power of love.\n"
+        "2. Hit #1 after a surprise awards show duet.\n"
+        "[End of Facts]\n"
+        "A bluesy ballad about the power of love that hit #1 "
+        "after a surprise duet at a major awards show."
+    ),
+    "R&B/Soul": (
+        "[Facts]\n"
+        "1. Samples a track that inspired the song's title.\n"
+        "2. The latest in a series of collaborations between two frequent partners.\n"
+        "[End of Facts]\n"
+        "The latest collaboration between two frequent partners, built on a "
+        "sample that gave the song its name."
+    ),
+}
+
+# Map variant genre labels to the five main buckets
+GENRE_BUCKET = {
+    "Latin": "Latin",
+    "Urbano latino": "Latin",
+    "Regional Mexican": "Latin",
+    "Hip-Hop/Rap": "Hip-Hop/Rap",
+    "Pop": "Pop",
+    "Singer/Songwriter": "Pop",
+    "K-Pop": "Pop",
+    "Country": "Country",
+    "R&B/Soul": "R&B/Soul",
+}
+# Fallback for Alternative, Indie Rock, J-Pop, Rock, etc.
+FALLBACK_EXAMPLE = (
+    "[Facts]\n"
+    "1. A breakthrough single released long after the album.\n"
+    "2. Explores themes of personal change.\n"
+    "[End of Facts]\n"
+    "A breakthrough single that arrived long after the album, "
+    "exploring themes of personal change."
+)
+
 
 def strip_html(html: str) -> str:
     return re.sub(r"<[^>]+>", "", html)
@@ -79,20 +147,23 @@ def build_prompt(entry: dict) -> dict:
     mk_ctx = build_musickit_context(mk)
     g_ctx = build_genius_context(entry.get("genius", {}))
 
+    # Check for rich signals beyond just genre/date
+    has_editorial = bool(mk.get("album", {}).get("editorialNotesShort"))
+    has_genius = g_ctx is not None
+    if not has_editorial and not has_genius:
+        return None  # Only genre + release date — model will hallucinate
+
     if mk_ctx and g_ctx:
         context = mk_ctx + "\n" + g_ctx
     elif mk_ctx:
         context = mk_ctx
-    elif g_ctx:
+    else:
         context = g_ctx
-    else:
-        context = None
 
-    # Final prompt — mirrors AppleIntelligenceService.swift
-    if context:
-        prompt = f'"{track}" by {artist}, from "{album}" ({genre}).\n\n{context}\n\nFicino:'
-    else:
-        prompt = f'"{track}" by {artist}, from "{album}" ({genre}).\n\nReact.'
+    # Final prompt — task-first ordering, command not question
+    task = "Write a short liner note using only the facts below."
+    header = f'"{track}" by {artist}, from "{album}" ({genre}).'
+    prompt = f'{task}\n\n{header}\n\n[Context]\n{context}\n[End of Context]'
 
     return {"prompt": prompt}
 
@@ -100,12 +171,14 @@ def build_prompt(entry: dict) -> dict:
 def main():
     entries = [json.loads(line) for line in INPUT.read_text().split("\n") if line.strip()]
     results = [build_prompt(e) for e in entries]
+    skipped = results.count(None)
+    results = [r for r in results if r is not None]
 
     with OUTPUT.open("w") as f:
         for r in results:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
-    print(f"Wrote {len(results)} prompts to {OUTPUT}")
+    print(f"Wrote {len(results)} prompts to {OUTPUT} (skipped {skipped} thin-context tracks)")
 
 
 if __name__ == "__main__":

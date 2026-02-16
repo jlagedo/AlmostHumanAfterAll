@@ -33,16 +33,24 @@ struct FMPromptRunnerApp: App {
             args.removeSubrange(idx...idx + 1)
         }
 
+        // Parse -dual flag
+        var dual = false
+        if let idx = args.firstIndex(of: "-dual") {
+            dual = true
+            args.remove(at: idx)
+        }
+
         guard args.count >= 3 else {
             print("""
-            Usage: FMPromptRunner <prompts.jsonl> <instructions.txt> <output.jsonl> [-limit N]
+            Usage: FMPromptRunner <prompts.jsonl> <instructions.txt> <output.jsonl> [-limit N] [-dual]
 
             Reads prompts JSONL, generates commentary via Apple Intelligence, writes output JSONL.
+            -dual: Two-stage pipeline (extract facts → write liner note)
             """)
             exit(1)
         }
         Task {
-            await run(args, limit: limit)
+            await run(args, limit: limit, dual: dual)
             exit(0)
         }
     }

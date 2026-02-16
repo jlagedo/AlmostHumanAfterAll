@@ -17,4 +17,4 @@ mkdir -p "$(dirname "$OUTPUT")"
 
 PROMPTS="$DATA/../prompts"
 
-"$APP" "$DATA/eval_output/prompts_top100.jsonl" "$PROMPTS/fm_instruction_v1.txt" "$OUTPUT" "$@"
+"$APP" "$DATA/eval_output/prompts_top100.jsonl" "$PROMPTS/fm_instruction_v11.json" "$OUTPUT" "$@"
