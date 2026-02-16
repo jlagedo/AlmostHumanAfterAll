@@ -30,10 +30,19 @@ dist/
 # ML artifacts
 ml/data/*.jsonl
 ml/data/*.csv
+ml/data/*.parquet
+ml/data/*.json
+!ml/data/.gitkeep
 ml/checkpoints/
 ml/wandb/
+ml/outputs/
 *.pt
 *.safetensors
+*.gguf
+*.bin
+
+# Jupyter
+.ipynb_checkpoints/
 
 # Xcode
 *.pbxuser
