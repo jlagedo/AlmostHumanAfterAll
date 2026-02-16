@@ -9,3 +9,7 @@
  1. Add FicinoCore as local package dependency
  2. Link FicinoCore framework to Ficino target
  3. Add entitlements above
+
+
+
+claude --resume 281953b1-05c5-4c63-b759-dd117f10ec93
