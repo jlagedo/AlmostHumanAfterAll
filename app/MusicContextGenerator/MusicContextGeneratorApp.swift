@@ -1,6 +1,9 @@
 import SwiftUI
 import MusicKit
 import MusicContext
+import os
+
+private let logger = Logger(subsystem: "com.ficino.MusicContextGenerator", category: "CLI")
 
 @main
 struct MusicContextGeneratorApp: App {
@@ -12,11 +15,13 @@ struct MusicContextGeneratorApp: App {
 
     init() {
         let args = Array(CommandLine.arguments.dropFirst())
-        if !args.isEmpty {
-            Task {
-                await runFromCommandLine(args)
-                exit(0)
-            }
+        if args.isEmpty {
+            print(usageMessage)
+            exit(0)
+        }
+        Task {
+            await runFromCommandLine(args)
+            exit(0)
         }
     }
 }
@@ -27,6 +32,8 @@ private func runFromCommandLine(_ args: [String]) async {
 
         switch parsed.arguments {
         case .musicBrainz(let artist, let album, let track, let durationMs):
+            logger.info("MusicBrainz: fetching context for \(track, privacy: .public) by \(artist, privacy: .public)")
+
             let provider = MusicBrainzProvider(
                 appName: "MusicContextGenerator",
                 version: "0.1.0",
@@ -37,34 +44,61 @@ private func runFromCommandLine(_ args: [String]) async {
             print("Fetching context for: \"\(track)\" by \(artist) from \"\(album)\"\(durationInfo)...")
             print()
 
+            logger.debug("MusicBrainz: searching for artist=\(artist, privacy: .public) track=\(track, privacy: .public) album=\(album, privacy: .public)")
             let context = try await provider.fetchContext(
                 artist: artist, track: track, album: album, durationMs: durationMs
             )
+            logger.info("MusicBrainz: context fetched, MBID: \(context.track.musicBrainzId ?? "nil", privacy: .public)")
             printMusicBrainzContext(context)
 
         case .musicKit(let artist, let album, let track):
+            logger.info("MusicKit: searching for \(track, privacy: .public) by \(artist, privacy: .public)")
             try await ensureAuthorized()
 
             let provider = MusicKitProvider()
             print("Searching Apple Music for: \"\(track)\" by \(artist) from \"\(album)\"...")
             print()
 
+            logger.debug("MusicKit: catalog search initiated")
             let song = try await provider.searchSong(artist: artist, track: track, album: album)
+            logger.info("MusicKit: found song ID \(song.id.rawValue, privacy: .public)")
             printSong(song)
             await printFullContext(song: song, provider: provider)
 
         case .musicKitID(let catalogID):
+            logger.info("MusicKit: fetching catalog ID \(catalogID, privacy: .public)")
             try await ensureAuthorized()
 
             let provider = MusicKitProvider()
             print("Fetching song with catalog ID: \(catalogID)...")
             print()
 
+            logger.debug("MusicKit: resource request for ID \(catalogID, privacy: .public)")
             let song = try await provider.fetchSong(catalogID: catalogID)
+            logger.info("MusicKit: fetched \(song.title, privacy: .public) by \(song.artistName, privacy: .public)")
             printSong(song)
             await printFullContext(song: song, provider: provider)
 
+        case .musicKitPlaylist(let name):
+            logger.info("MusicKit: searching for playlist \(name, privacy: .public)")
+            try await ensureAuthorized()
+
+            let provider = MusicKitProvider()
+            printErr("Searching Apple Music for playlist: \"\(name)\"...")
+
+            logger.debug("MusicKit: playlist search initiated")
+            let playlist = try await provider.searchPlaylist(name: name)
+            logger.info("Playlist: found '\(playlist.name, privacy: .public)'")
+
+            let tracks = try await provider.fetchPlaylistTracks(playlist: playlist)
+            logger.info("Playlist: '\(playlist.name, privacy: .public)' has \(tracks.count) tracks")
+            printErr("Found \(tracks.count) tracks.")
+
+            print(formatCSV(tracks: tracks), terminator: "")
+
         case .genius(let artist, let album, let track):
+            logger.info("Genius: fetching context for \(track, privacy: .public) by \(artist, privacy: .public)")
+
             guard let token = Bundle.main.infoDictionary?["GeniusAccessToken"] as? String,
                   !token.isEmpty, token != "your_genius_access_token_here" else {
                 print("Error: GeniusAccessToken not configured in Secrets.xcconfig")
@@ -75,19 +109,28 @@ private func runFromCommandLine(_ args: [String]) async {
             print("Fetching Genius context for: \"\(track)\" by \(artist) from \"\(album)\"...")
             print()
 
+            logger.debug("Genius: search initiated")
             let context = try await provider.fetchContext(artist: artist, track: track, album: album)
+            logger.info("Genius: context fetched for \(context.track.title, privacy: .public)")
             printGeniusContext(context)
         }
 
-        print("Done.")
+        if case .musicKitPlaylist = parsed.arguments {
+            printErr("Done.")
+        } else {
+            print("Done.")
+        }
 
     } catch let error as ArgumentError {
+        logger.error("Argument error: \(error.description, privacy: .public)")
         print("Error: \(error.description)")
         exit(1)
     } catch let error as MusicContextError {
+        logger.error("MusicContext error: \(error.description, privacy: .public)")
         print("Error: \(error.description)")
         exit(1)
     } catch {
+        logger.error("Command failed: \(error, privacy: .public)")
         print("Error: \(error)")
         // Print the full error details for debugging
         print("  Type: \(type(of: error))")
@@ -103,18 +146,45 @@ private func runFromCommandLine(_ args: [String]) async {
     }
 }
 
+private func printErr(_ message: String) {
+    FileHandle.standardError.write(Data((message + "\n").utf8))
+}
+
 private func ensureAuthorized() async throws {
     let currentStatus = MusicAuthorization.currentStatus
-    print("MusicKit authorization status: \(currentStatus)")
+    logger.info("MusicKit authorization status: \(String(describing: currentStatus), privacy: .public)")
+    printErr("MusicKit authorization status: \(currentStatus)")
 
     if currentStatus != .authorized {
         let status = await MusicAuthorization.request()
-        print("MusicKit authorization result: \(status)")
+        logger.info("MusicKit authorization result: \(String(describing: status), privacy: .public)")
+        printErr("MusicKit authorization result: \(status)")
         guard status == .authorized else {
-            print("Error: MusicKit authorization denied")
+            logger.error("MusicKit authorization denied")
+            printErr("Error: MusicKit authorization denied")
             exit(1)
         }
     }
+}
+
+// MARK: - CSV helpers
+
+private func formatCSV(tracks: MusicItemCollection<Track>) -> String {
+    var lines = ["artist,track,album"]
+    for track in tracks {
+        let artist = csvEscape(track.artistName)
+        let title = csvEscape(track.title)
+        let album = csvEscape(track.albumTitle ?? "")
+        lines.append("\(artist),\(title),\(album)")
+    }
+    return lines.joined(separator: "\n") + "\n"
+}
+
+private func csvEscape(_ field: String) -> String {
+    if field.contains(",") || field.contains("\"") || field.contains("\n") {
+        return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+    }
+    return field
 }
 
 // MARK: - Display helpers

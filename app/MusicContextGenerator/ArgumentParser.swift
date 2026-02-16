@@ -12,6 +12,7 @@ enum ProviderArguments {
     case musicBrainz(artist: String, album: String, track: String, durationMs: Int?)
     case musicKit(artist: String, album: String, track: String)
     case musicKitID(catalogID: String)
+    case musicKitPlaylist(name: String)
     case genius(artist: String, album: String, track: String)
 }
 
@@ -82,6 +83,16 @@ private func parseMusicKitArgs(_ args: [String], providerType: ProviderType) thr
         )
     }
 
+    if args[0] == "--playlist" {
+        guard args.count >= 2, !args[1].isEmpty else {
+            throw ArgumentError.insufficientMusicKitArgs
+        }
+        return ParsedArguments(
+            providerType: providerType,
+            arguments: .musicKitPlaylist(name: args[1])
+        )
+    }
+
     guard args.count >= 3 else {
         throw ArgumentError.insufficientMusicKitArgs
     }
@@ -136,7 +147,7 @@ enum ArgumentError: Error, CustomStringConvertible {
         case .insufficientMusicBrainzArgs(let provided):
             return "MusicBrainz mode requires 3-4 arguments (Artist, Album, Track, [DurationMs]), got \(provided)\n" + usageMessage
         case .insufficientMusicKitArgs:
-            return "MusicKit mode requires 3 arguments (Artist, Album, Track) or --id <CatalogID>\n" + usageMessage
+            return "MusicKit mode requires 3 arguments (Artist, Album, Track), --id <CatalogID>, or --playlist <Name>\n" + usageMessage
         case .insufficientGeniusArgs(let provided):
             return "Genius mode requires 3 arguments (Artist, Album, Track), got \(provided)\n" + usageMessage
         case .emptyArgument:
@@ -150,6 +161,7 @@ Usage:
   MusicContextGenerator -p mb <Artist> <Album> <Track> [DurationMs]
   MusicContextGenerator -p mk <Artist> <Album> <Track>
   MusicContextGenerator -p mk --id <CatalogID>
+  MusicContextGenerator -p mk --playlist <Name>
   MusicContextGenerator -p g  <Artist> <Album> <Track>
 
 Providers:
@@ -161,5 +173,7 @@ Examples:
   MusicContextGenerator -p mb "Radiohead" "OK Computer" "Let Down" 299000
   MusicContextGenerator -p mk "Radiohead" "OK Computer" "Let Down"
   MusicContextGenerator -p mk --id 1440933460
+  MusicContextGenerator -p mk --playlist "Top 100: Global"
+  MusicContextGenerator -p mk --playlist "Top 100: Global" > top100.csv
   MusicContextGenerator -p g  "Radiohead" "OK Computer" "Let Down"
 """

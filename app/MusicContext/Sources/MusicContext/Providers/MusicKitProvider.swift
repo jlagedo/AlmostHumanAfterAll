@@ -73,7 +73,50 @@ public actor MusicKitProvider {
         return try await artist.with(.genres, .topSongs, .similarArtists, .fullAlbums, .latestRelease, .appearsOnAlbums, .compilationAlbums, .featuredAlbums, .liveAlbums, .featuredPlaylists)
     }
 
+    /// Search for a playlist by name.
+    public func searchPlaylist(name: String) async throws -> Playlist {
+        var request = MusicCatalogSearchRequest(term: name, types: [Playlist.self])
+        request.limit = 25
+
+        let response = try await request.response()
+
+        guard let playlist = bestPlaylistMatch(from: response.playlists, name: name) else {
+            throw MusicContextError.noResults(query: name)
+        }
+
+        return playlist
+    }
+
+    /// Load tracks for a playlist.
+    public func fetchPlaylistTracks(playlist: Playlist) async throws -> MusicItemCollection<Track> {
+        let detailed = try await playlist.with(.tracks)
+
+        guard let tracks = detailed.tracks, !tracks.isEmpty else {
+            throw MusicContextError.noResults(query: playlist.name)
+        }
+
+        return tracks
+    }
+
     // MARK: - Private
+
+    private func bestPlaylistMatch(from playlists: MusicItemCollection<Playlist>, name: String) -> Playlist? {
+        let normalized = name.lowercased()
+
+        for playlist in playlists {
+            if playlist.name.lowercased() == normalized {
+                return playlist
+            }
+        }
+
+        for playlist in playlists {
+            if playlist.name.lowercased().contains(normalized) {
+                return playlist
+            }
+        }
+
+        return playlists.first
+    }
 
     private func bestMatch(from songs: MusicItemCollection<Song>, artist: String, track: String) -> Song? {
         let normalizedArtist = artist.lowercased()
