@@ -1,6 +1,6 @@
 # Ficino
 
-A macOS menu bar app that listens to Apple Music and delivers AI-powered commentary on every track you play — powered entirely by Apple Intelligence.
+A music commentary system: a macOS menu bar app powered by on-device Apple Intelligence, plus a Python workspace for prompt engineering, evaluation, and LoRA fine-tuning of the underlying model.
 
 ## What it does
 
@@ -8,36 +8,57 @@ When a song starts playing in Apple Music, Ficino catches the track change, look
 
 Ficino is a music obsessive who lives for the story behind the song — the failed session that produced a masterpiece, the personal feud that shaped a lyric, the borrowed chord progression that changed a genre.
 
-## Tech Stack
+## Repository Layout
 
-- **Swift / SwiftUI** — menu bar UI via `MenuBarExtra` scene API
-- **DistributedNotificationCenter** — catches `com.apple.Music.playerInfo` events
-- **FoundationModels** (Apple Intelligence) — on-device LLM commentary, zero API keys
-- **MusicKit** — catalog search for album artwork, genres, composers, editorial notes, and artist metadata
-- **Custom floating NSPanel** — styled notifications with album art, drag-to-dismiss, no system permission prompts
+```
+app/               macOS menu bar app (Swift / Xcode)
+├── Ficino/            App source (MVVM: Models, Services, Views)
+├── Ficino.xcodeproj   Xcode project
+├── FicinoCore/        Orchestration: MusicKit → prompt enrichment → commentary
+├── MusicModel/        AI layer (CommentaryService protocol, Apple Intelligence backend)
+├── MusicContext/      Metadata providers (MusicBrainz, MusicKit, Genius)
+└── MusicContextGenerator/  Standalone tool for testing metadata providers
 
-## Packages
+ml/                Prompt engineering, evaluation, and training (Python)
+├── prompts/           Prompt templates and variations
+├── eval/              Evaluation scripts and benchmarks
+├── training/          LoRA fine-tuning pipelines
+├── data/              Datasets (not tracked in git)
+└── pyproject.toml
 
-- **FicinoCore** — Facade actor orchestrating MusicKit lookup → enriched prompt building → commentary generation. Clean boundary: `TrackRequest` in, `TrackResult` (commentary + artwork URL) out.
-- **MusicModel** — AI commentary layer (`CommentaryService` protocol, `AppleIntelligenceService`, personality definition, `TrackInput`)
-- **MusicContext** — Rich music metadata from MusicBrainz, Apple MusicKit, and Genius APIs
-- **MusicContextGenerator** — Standalone macOS app for testing metadata providers (GUI + CLI mode)
+docs/              Shared documentation (Apple FM specs, prompt guides, etc.)
+```
 
-## Building
+## Building the App
 
-Open `Ficino.xcodeproj` in Xcode and build, or from the command line:
+Open `app/Ficino.xcodeproj` in Xcode and build, or from the command line:
 
 ```sh
-xcodebuild -project Ficino.xcodeproj -scheme Ficino -derivedDataPath ./build build
+xcodebuild -project app/Ficino.xcodeproj -scheme Ficino -derivedDataPath ./build build
 ```
 
 To build the metadata testing tool:
 
 ```sh
-xcodebuild -project Ficino.xcodeproj -scheme MusicContextGenerator -derivedDataPath ./build build
+xcodebuild -project app/Ficino.xcodeproj -scheme MusicContextGenerator -derivedDataPath ./build build
 ```
+
+## ML Workspace
+
+```sh
+cd ml
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
+```
+
+## Tech Stack
+
+**App:** Swift, SwiftUI, FoundationModels (Apple Intelligence), MusicKit, DistributedNotificationCenter, custom floating NSPanel notifications
+
+**ML:** Python — prompt iteration, output evaluation, LoRA training against the on-device 3B model
 
 ## Requirements
 
 - macOS 26+
 - Apple Music
+- Python 3.11+ (for `ml/`)

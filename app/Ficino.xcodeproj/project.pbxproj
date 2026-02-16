@@ -40,7 +40,6 @@
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AE4B97262F42859E00D9F109 /* Ficino */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (AE4B97342F42859E00D9F109 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Ficino; sourceTree = "<group>"; };
-		AEDE2C322F3E761B009D794D /* docs */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = docs; sourceTree = "<group>"; };
 		AEF2E3E12F411051009E0C54 /* MusicContextGenerator */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (AEF2E4102F500000009E0C54 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = MusicContextGenerator; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
@@ -70,7 +69,6 @@
 			isa = PBXGroup;
 			children = (
 				AE97E6972F41A97C0005F306 /* Secrets.xcconfig */,
-				AEDE2C322F3E761B009D794D /* docs */,
 				AE4B97262F42859E00D9F109 /* Ficino */,
 				AEF2E3E12F411051009E0C54 /* MusicContextGenerator */,
 				E10006 /* Products */,

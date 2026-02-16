@@ -20,6 +20,21 @@ DerivedData/
 # Secrets
 Secrets.xcconfig
 
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+dist/
+
+# ML artifacts
+ml/data/*.jsonl
+ml/data/*.csv
+ml/checkpoints/
+ml/wandb/
+*.pt
+*.safetensors
+
 # Xcode
 *.pbxuser
 !default.pbxuser

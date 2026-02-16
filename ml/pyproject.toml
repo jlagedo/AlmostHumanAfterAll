@@ -1,0 +1,13 @@
+[project]
+name = "ficino-ml"
+version = "0.1.0"
+description = "Prompt engineering, evaluation, and LoRA training for Ficino"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+training = []
+eval = []
+
+[tool.ruff]
+line-length = 100
