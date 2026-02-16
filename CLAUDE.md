@@ -37,7 +37,7 @@ xcodebuild -project Ficino.xcodeproj -scheme MusicContextGenerator -derivedDataP
 - `MusicContext/` — Swift package for fetching music metadata from MusicBrainz, MusicKit, and Genius APIs
 - `MusicContextGenerator/` — Standalone macOS app for testing MusicContext providers (GUI + CLI mode)
 
-**Key flow:** MusicListener detects track change via `DistributedNotificationCenter` → `AppState.handleTrackChange()` → parallel artwork fetch + commentary request (`async let`) → result saved to history → floating NSPanel notification shown → every 5 songs triggers a review.
+**Key flow:** MusicListener detects track change via `DistributedNotificationCenter` → `AppState.handleTrackChange()` → parallel artwork fetch + commentary request (`async let`) → result saved to history → floating NSPanel notification shown.
 
 ### Services
 
@@ -68,11 +68,19 @@ xcodebuild -project Ficino.xcodeproj -scheme MusicContextGenerator -derivedDataP
 - **NEVER modify `.pbxproj` or any file inside `.xcodeproj`** — one corrupted project file wastes hours. The project uses Xcode 16+ synchronized folders (`PBXFileSystemSynchronizedRootGroup`), so creating/editing/deleting Swift files on disk is automatically picked up by Xcode.
 - For structural changes (new targets, build settings, frameworks, build phases), instruct the user to do it manually in Xcode.
 
+## Platform
+
+**This is a macOS-only app.** Many Apple frameworks have APIs that are iOS-only or marked `@available(macOS, unavailable)`. Before proposing or using any Apple framework API, verify it is actually available on macOS — do not assume iOS availability implies macOS availability. Notable examples: `SystemMusicPlayer` (MusicKit) is explicitly unavailable on macOS.
+
+## Reference Docs
+
+- `docs/apple_fm_specs.md` — Detailed Apple Intelligence Foundation Models specification (architecture, API, benchmarks, token budgets). Consult this when working with `FoundationModels` framework features.
+
 ## Important Details
 
-- App sandbox is **disabled** in `Ficino.entitlements` — needed for DistributedNotificationCenter and AppleScript execution
+- App sandbox is **enabled** in `Ficino.entitlements` — receiving specific named distributed notifications works inside the sandbox
 - `FicinoApp.swift` is the `@main` entry using `MenuBarExtra` scene API
-- Album artwork is fetched via AppleScript bridge to Music.app (`raw data of artwork 1 of current track`), not MusicKit
+- Album artwork fetching is stubbed out (TODO: replace with MusicKit catalog search)
 - History is capped at 50 entries with JPEG-compressed thumbnails (48pt, 0.7 quality)
 - Single personality ("Ficino") with a detailed system prompt defined in `Personality.swift`
 - **Preferences** persist via `UserDefaults`: skip threshold, notification duration

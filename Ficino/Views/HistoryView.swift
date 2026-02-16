@@ -32,36 +32,21 @@ struct HistoryEntryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
-                if entry.isReview {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(.quaternary)
-                            .frame(width: 24, height: 24)
-                        Image(systemName: "star.fill")
-                            .font(.caption)
-                            .foregroundStyle(.yellow)
-                    }
+                if let thumbnail = entry.thumbnailImage {
+                    Image(nsImage: thumbnail)
+                        .resizable()
+                        .frame(width: 24, height: 24)
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                }
 
-                    Text("5-Song Review")
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(entry.track.name)
                         .font(.system(.body, weight: .semibold))
                         .lineLimit(1)
-                } else if let track = entry.track {
-                    if let thumbnail = entry.thumbnailImage {
-                        Image(nsImage: thumbnail)
-                            .resizable()
-                            .frame(width: 24, height: 24)
-                            .clipShape(RoundedRectangle(cornerRadius: 3))
-                    }
-
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(track.name)
-                            .font(.system(.body, weight: .semibold))
-                            .lineLimit(1)
-                        Text(track.artist)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
+                    Text(entry.track.artist)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
 
                 Spacer()
@@ -88,8 +73,6 @@ struct HistoryEntryView: View {
         }
         .animation(.easeOut(duration: 0.15), value: isHovered)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(entry.isReview
-            ? "5-Song Review: \(entry.comment)"
-            : "\(entry.track?.name ?? "") by \(entry.track?.artist ?? ""): \(entry.comment)")
+        .accessibilityLabel("\(entry.track.name) by \(entry.track.artist): \(entry.comment)")
     }
 }

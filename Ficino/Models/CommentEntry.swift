@@ -4,27 +4,17 @@ import MusicModel
 
 struct CommentEntry: Identifiable {
     let id = UUID()
-    let track: TrackInfo?
+    let track: TrackInfo
     let comment: String
     let personality: Personality
     let thumbnailData: Data?
     let timestamp: Date
-
-    var isReview: Bool { track == nil }
 
     init(track: TrackInfo, comment: String, personality: Personality, artwork: NSImage? = nil) {
         self.track = track
         self.comment = comment
         self.personality = personality
         self.thumbnailData = Self.makeThumbnail(from: artwork, maxSize: 48)
-        self.timestamp = Date()
-    }
-
-    init(reviewComment: String, personality: Personality) {
-        self.track = nil
-        self.comment = reviewComment
-        self.personality = personality
-        self.thumbnailData = nil
         self.timestamp = Date()
     }
 

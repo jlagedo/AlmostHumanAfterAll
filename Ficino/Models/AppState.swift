@@ -35,9 +35,7 @@ final class AppState: ObservableObject {
     private var lastTrackID: String?
     private var trackStartTime: Date?
     private var commentTask: Task<Void, Never>?
-    private var reviewTask: Task<Void, Never>?
     private var hasStarted = false
-    private var songsSinceLastReview = 0
 
     private static let historyCapacity = 50
 
@@ -194,16 +192,6 @@ final class AppState: ObservableObject {
                 )
                 NSLog("[AppState] Floating notification sent (duration: %.0fs)", notificationDuration)
 
-                // 5-song review counter
-                songsSinceLastReview += 1
-                if songsSinceLastReview >= 5 {
-                    songsSinceLastReview = 0
-                    reviewTask?.cancel()
-                    reviewTask = Task { [personality, notificationDuration] in
-                        await self.requestReview(personality: personality, notificationDuration: notificationDuration)
-                    }
-                }
-
             case .failure(let error):
                 NSLog("[AppState] Apple Intelligence error: %@", error.localizedDescription)
                 if error is CancellationError {
@@ -214,48 +202,4 @@ final class AppState: ObservableObject {
         }
     }
 
-    // MARK: - 5-Song Review
-
-    private func requestReview(personality: Personality, notificationDuration: Double) async {
-        guard !Task.isCancelled else { return }
-
-        guard let service = appleIntelligenceService else {
-            NSLog("[AppState] Apple Intelligence not available for review")
-            return
-        }
-
-        NSLog("[AppState] Requesting 5-song review (engine: Apple Intelligence)...")
-
-        do {
-            async let reviewResult = service.getReview(personality: personality)
-            try await Task.sleep(nanoseconds: UInt64((notificationDuration + 1) * 1_000_000_000))
-
-            let review = try await reviewResult
-
-            guard !Task.isCancelled else { return }
-
-            if review.isEmpty {
-                NSLog("[AppState] Empty review, skipping")
-                return
-            }
-
-            NSLog("[AppState] Got review (%d chars)", review.count)
-
-            let entry = CommentEntry(reviewComment: review, personality: personality)
-            history.insert(entry, at: 0)
-            if history.count > Self.historyCapacity {
-                history.removeLast()
-            }
-
-            notificationService.duration = notificationDuration
-            notificationService.sendReview(comment: review, personality: personality)
-            NSLog("[AppState] Review notification sent")
-        } catch {
-            if error is CancellationError {
-                NSLog("[AppState] Review cancelled")
-            } else {
-                NSLog("[AppState] Review failed: %@", error.localizedDescription)
-            }
-        }
-    }
 }

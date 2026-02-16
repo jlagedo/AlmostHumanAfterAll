@@ -22,17 +22,6 @@ final class NotificationService {
         showPanel(content)
     }
 
-    func sendReview(comment: String, personality: Personality) {
-        NSLog("[Notification] Showing review notification (duration: %.0fs)", duration)
-
-        let content = FloatingReviewNotificationView(
-            comment: comment,
-            personality: personality,
-            onDismiss: { [weak self] in self?.dismiss() }
-        )
-        showPanel(content)
-    }
-
     private func showPanel<V: View>(_ content: V) {
         dismiss()
 
@@ -196,71 +185,3 @@ struct FloatingNotificationView: View {
     }
 }
 
-// MARK: - Floating Review Notification View
-
-struct FloatingReviewNotificationView: View {
-    let comment: String
-    let personality: Personality
-    let onDismiss: () -> Void
-
-    @State private var isHovering = false
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Star icon instead of artwork
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(.ultraThinMaterial)
-                Image(systemName: "star.fill")
-                    .font(.title2)
-                    .foregroundStyle(.yellow)
-            }
-            .frame(width: 72, height: 72)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-
-            // Text content
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Spacer()
-
-                    if isHovering {
-                        Button {
-                            onDismiss()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Dismiss notification")
-                    }
-                }
-
-                Text("5-Song Review")
-                    .font(.system(.body, weight: .semibold))
-                    .lineLimit(1)
-
-                Text(comment)
-                    .font(.system(.callout, design: .rounded))
-                    .foregroundStyle(.primary)
-                    .lineLimit(12)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 2)
-            }
-        }
-        .padding(14)
-        .frame(width: 390)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(.ultraThickMaterial)
-                .shadow(color: .black.opacity(0.2), radius: 20, x: 0, y: 8)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
-        )
-        .onHover { hovering in
-            isHovering = hovering
-        }
-    }
-}

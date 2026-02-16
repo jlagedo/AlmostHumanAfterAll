@@ -27,21 +27,6 @@ public actor AppleIntelligenceService: CommentaryService {
         return try await generate(prompt: prompt, personality: personality)
     }
 
-    public func getReview(personality: Personality) async throws -> String {
-        try checkAvailability()
-
-        let prompt = """
-        Your character: \(personality.rawValue)
-        \(personality.systemPrompt)
-
-        Review the last 5 songs you just commented on. Talk about the vibe of this listening session, \
-        any standouts, and how the tracks flow together. 3-5 sentences, stay fully in character. No disclaimers.
-        """
-
-        NSLog("[AppleIntelligence] Requesting 5-song review as '%@'", personality.rawValue)
-        return try await generate(prompt: prompt, personality: personality)
-    }
-
     public func cancelCurrent() {
         currentTask?.cancel()
         currentTask = nil

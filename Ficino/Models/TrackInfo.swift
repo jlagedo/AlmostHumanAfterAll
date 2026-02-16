@@ -30,7 +30,7 @@ struct TrackInfo: Identifiable, Equatable {
         if let pid = userInfo["PersistentID"] as? Int {
             self.id = String(pid)
         } else {
-            self.id = "\(name)-\(artist)-\(Date().timeIntervalSince1970)"
+            self.id = "\(name)-\(artist)"
         }
 
         self.timestamp = Date()
