@@ -6,18 +6,17 @@ Mirrors the prompt-building logic from the Swift app:
 - AppleIntelligenceService.swift (final prompt format)
 - Personality.swift (system instructions)
 
-Output: data/prompts_top100.jsonl — one JSON object per line with
-  { "track", "artist", "album", "instruction", "context", "prompt" }
+Output: data/eval_output/prompts_top100.jsonl — one JSON object per line with
+  { "prompt" }
 """
 
 import json
 import re
 from pathlib import Path
 
-DATA_DIR = Path(__file__).parent / "data"
+DATA_DIR = Path(__file__).parent.parent / "data"
 INPUT = DATA_DIR / "context_top100.jsonl"
-OUTPUT = DATA_DIR / "prompts_top100.jsonl"
-INSTRUCTIONS = (DATA_DIR / "fm_instruction_v1.txt").read_text().strip()
+OUTPUT = DATA_DIR / "eval_output" / "prompts_top100.jsonl"
 
 
 def strip_html(html: str) -> str:
@@ -95,14 +94,7 @@ def build_prompt(entry: dict) -> dict:
     else:
         prompt = f'"{track}" by {artist}, from "{album}" ({genre}).\n\nReact.'
 
-    return {
-        "track": track,
-        "artist": artist,
-        "album": album,
-        "instruction": INSTRUCTIONS,
-        "context": context or "",
-        "prompt": prompt,
-    }
+    return {"prompt": prompt}
 
 
 def main():

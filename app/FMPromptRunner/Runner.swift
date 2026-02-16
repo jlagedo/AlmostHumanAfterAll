@@ -6,25 +6,15 @@ import FoundationModels
 #endif
 
 struct PromptEntry: Codable {
-    let track: String
-    let artist: String
-    let album: String
     let prompt: String
-    // optional fields carried through
-    let context: String?
-    let instruction: String?
 }
 
 struct OutputEntry: Codable {
-    let track: String
-    let artist: String
-    let album: String
     let prompt: String
-    let context: String?
     let response: String
 }
 
-func run(_ args: [String]) async {
+func run(_ args: [String], limit: Int? = nil) async {
     let promptsPath = args[0]
     let instructionsPath = args[1]
     let outputPath = args[2]
@@ -60,7 +50,12 @@ func run(_ args: [String]) async {
             print("Warning: skipping line \(i + 1): \(error.localizedDescription)")
         }
     }
-    print("Loaded \(entries.count) prompts")
+    if let limit {
+        entries = Array(entries.prefix(limit))
+        print("Loaded \(entries.count) prompts (limited to \(limit))")
+    } else {
+        print("Loaded \(entries.count) prompts")
+    }
 
     #if canImport(FoundationModels)
     guard #available(macOS 26, *) else {
@@ -90,9 +85,9 @@ func run(_ args: [String]) async {
     defer { fileHandle.closeFile() }
 
     for (i, entry) in entries.enumerated() {
-        let label = "\"\(entry.track)\" by \(entry.artist)"
-        logger.info("[\(i + 1)/\(entries.count)] Generating: \(label, privacy: .public)")
-        print("[\(i + 1)/\(entries.count)] \(label)...", terminator: " ")
+        let preview = entry.prompt.count > 60 ? String(entry.prompt.prefix(60)) + "…" : entry.prompt
+        logger.info("[\(i + 1)/\(entries.count)] Generating: \(preview, privacy: .public)")
+        print("[\(i + 1)/\(entries.count)] \(preview)...", terminator: " ")
 
         do {
             let session = LanguageModelSession(instructions: trimmedInstructions)
@@ -100,11 +95,7 @@ func run(_ args: [String]) async {
             let response = result.content
 
             let output = OutputEntry(
-                track: entry.track,
-                artist: entry.artist,
-                album: entry.album,
                 prompt: entry.prompt,
-                context: entry.context,
                 response: response
             )
 

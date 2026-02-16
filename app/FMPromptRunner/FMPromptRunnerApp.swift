@@ -19,20 +19,30 @@ struct FMPromptRunnerApp: App {
     }
 
     init() {
-        let args = Array(CommandLine.arguments.dropFirst())
+        var args = Array(CommandLine.arguments.dropFirst())
+
+        // Parse -limit flag
+        var limit: Int?
+        if let idx = args.firstIndex(of: "-limit"), idx + 1 < args.count {
+            if let n = Int(args[idx + 1]), n > 0 {
+                limit = n
+            } else {
+                print("Error: -limit requires a positive integer")
+                exit(1)
+            }
+            args.removeSubrange(idx...idx + 1)
+        }
+
         guard args.count >= 3 else {
             print("""
-            Usage: FMPromptRunner <prompts.jsonl> <instructions.txt> <output.jsonl>
+            Usage: FMPromptRunner <prompts.jsonl> <instructions.txt> <output.jsonl> [-limit N]
 
             Reads prompts JSONL, generates commentary via Apple Intelligence, writes output JSONL.
-
-            Each input line must have: { "track", "artist", "album", "prompt" }
-            Output adds: { ..., "response" }
             """)
             exit(1)
         }
         Task {
-            await run(args)
+            await run(args, limit: limit)
             exit(0)
         }
     }
