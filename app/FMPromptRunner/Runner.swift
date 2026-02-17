@@ -21,7 +21,7 @@ struct InstructionsFile: Codable {
     var examples: [String: String]?
 }
 
-func run(_ args: [String], limit: Int? = nil, dual: Bool = false) async {
+func run(_ args: [String], limit: Int? = nil) async {
     let promptsPath = args[0]
     let instructionsPath = args[1]
     let outputPath = args[2]
@@ -50,9 +50,9 @@ func run(_ args: [String], limit: Int? = nil, dual: Bool = false) async {
         logger.info("Loaded plain text instructions (\(trimmedInstructions.count) chars)")
     }
 
-    if dual && extractionInstructions == nil {
-        print("Error: -dual requires an \"extraction\" field in the instructions JSON file")
-        exit(1)
+    if extractionInstructions == nil {
+        print("Warning: no \"extraction\" field in instructions — extraction step will use default prompt")
+        extractionInstructions = "List the factual details stated in the context as a short numbered list. If no facts are found, output only 'NA'. Do not hallucinate. Do not make up factual information."
     }
 
     // Read prompts JSONL
@@ -110,9 +110,7 @@ func run(_ args: [String], limit: Int? = nil, dual: Bool = false) async {
     }
     defer { fileHandle.closeFile() }
 
-    if dual {
-        print("[dual mode] Stage 1: extract facts → Stage 2: write liner note")
-    }
+    print("Stage 1: extract facts → Stage 2: write liner note")
 
     for (i, entry) in entries.enumerated() {
         let preview = entry.prompt.count > 60 ? String(entry.prompt.prefix(60)) + "…" : entry.prompt
@@ -123,62 +121,57 @@ func run(_ args: [String], limit: Int? = nil, dual: Bool = false) async {
             let response: String
             var extractedFacts: String? = nil
 
-            if dual {
-                // Strip the task line to get just the track header + context
-                let promptLines = entry.prompt.components(separatedBy: "\n")
-                let contextPrompt = promptLines
-                    .drop(while: { $0.hasPrefix("Write") || $0.trimmingCharacters(in: .whitespaces).isEmpty })
-                    .joined(separator: "\n")
+            // Strip the task line to get just the track header + context
+            let promptLines = entry.prompt.components(separatedBy: "\n")
+            let contextPrompt = promptLines
+                .drop(while: { $0.hasPrefix("Write") || $0.trimmingCharacters(in: .whitespaces).isEmpty })
+                .joined(separator: "\n")
 
-                // Extract track header (everything before [Context])
-                let trackHeader: String
-                if let range = contextPrompt.range(of: "\n\n[Context]") {
-                    trackHeader = String(contextPrompt[contextPrompt.startIndex..<range.lowerBound])
-                } else {
-                    trackHeader = contextPrompt
-                }
-
-                // Stage 1: Extract facts
-                let extractSession = LanguageModelSession(instructions: extractionInstructions!)
-                let extractResult = try await extractSession.respond(to: contextPrompt)
-                let facts = extractResult.content
-                extractedFacts = facts
-                logger.info("[\(i + 1)] Facts: \(facts, privacy: .public)")
-
-                // Skip writing if extraction found nothing notable
-                if facts.trimmingCharacters(in: .whitespacesAndNewlines) == "NA" {
-                    response = "I don't know much about this one, sorry!"
-                    print("SKIP (no notable facts)")
-                } else {
-                    // Stage 2: Write liner note from extracted facts
-                    // Parse genre from trackHeader — e.g. "..." by ..., from "..." (Latin).
-                    var writeInstructions = trimmedInstructions
-                    if let openParen = trackHeader.lastIndex(of: "("),
-                       let closeParen = trackHeader.lastIndex(of: ")") {
-                        let genre = String(trackHeader[trackHeader.index(after: openParen)..<closeParen])
-                        let example = genreExamples[genre] ?? genreExamples["default"] ?? ""
-                        if !example.isEmpty {
-                            writeInstructions += "\n\nExample:\n\(example)"
-                        }
-                    }
-
-                    let writePrompt = """
-                    Write a short liner note using only the facts below.
-
-                    \(trackHeader)
-
-                    [Facts]
-                    \(facts)
-                    [End of Facts]
-                    """
-                    let writeSession = LanguageModelSession(instructions: writeInstructions)
-                    let writeResult = try await writeSession.respond(to: writePrompt)
-                    response = writeResult.content
-                }
+            // Extract track header (everything before [Context])
+            let trackHeader: String
+            if let range = contextPrompt.range(of: "\n\n[Context]") {
+                trackHeader = String(contextPrompt[contextPrompt.startIndex..<range.lowerBound])
             } else {
-                let session = LanguageModelSession(instructions: trimmedInstructions)
-                let result = try await session.respond(to: entry.prompt)
-                response = result.content
+                trackHeader = contextPrompt
+            }
+
+            // Stage 1: Extract facts
+            let extractSession = LanguageModelSession(instructions: extractionInstructions!)
+            let extractResult = try await extractSession.respond(to: contextPrompt)
+            let facts = extractResult.content
+            extractedFacts = facts
+            logger.info("[\(i + 1)] Facts: \(facts, privacy: .public)")
+
+            // Skip writing if extraction found nothing notable
+            if facts.trimmingCharacters(in: .whitespacesAndNewlines) == "NA" {
+                response = "I don't know much about this one, sorry!"
+                print("SKIP (no notable facts)")
+            } else {
+                // Stage 2: Write liner note from extracted facts
+                // Parse genre from trackHeader — e.g. "Genre: Latin"
+                var writeInstructions = trimmedInstructions
+                if let genreLine = trackHeader.components(separatedBy: "\n")
+                    .first(where: { $0.hasPrefix("Genre:") }) {
+                    let genre = genreLine.replacingOccurrences(of: "Genre:", with: "")
+                        .trimmingCharacters(in: .whitespaces)
+                    let example = genreExamples[genre] ?? genreExamples["default"] ?? ""
+                    if !example.isEmpty {
+                        writeInstructions += "\n\nStyle example (DO NOT use content from this example):\n\(example)"
+                    }
+                }
+
+                let writePrompt = """
+                Write a short liner note using only the facts below.
+
+                \(trackHeader)
+
+                [Facts]
+                \(facts)
+                [End of Facts]
+                """
+                let writeSession = LanguageModelSession(instructions: writeInstructions)
+                let writeResult = try await writeSession.respond(to: writePrompt)
+                response = writeResult.content
             }
 
             let output = OutputEntry(

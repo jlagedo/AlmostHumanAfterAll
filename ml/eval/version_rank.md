@@ -3,6 +3,7 @@
 | Version | Date | Faith | Ground | Tone | Conc | Acc | **Avg** | Flags | n |
 |---------|------|-------|--------|------|------|-----|---------|-------|---|
 | v14 | 02-16 | 2.7 | 2.5 | 1.2 | 1.5 | 2.7 | **10.6** | 26P 8H 16D 7E 2C 7M | 94 |
+| v15 | 02-17 | 2.5 | 2.5 | 1.4 | 2.3 | 2.6 | **11.3** | 5P 6H 4E 2C 11M | 92 |
 <!-- /summary -->
 
 ---
@@ -30,3 +31,29 @@ Faith 2.7 · Ground 2.5 · Tone 1.2 · Conc 1.5 · Acc 2.7 · **10.6/15**
 | 60 | 14 | Hip-Hop/Rap | Concise, faithful, decent voice. Strong. |
 | 39 | 14 | R&B/Soul | Concise, faithful, decent voice. Strong. |
 | 37 | 14 | Indie Rock | Concise, faithful, decent tone. Solid. |
+
+---
+
+## v15 — 2026-02-17
+
+Faith 2.5 · Ground 2.5 · Tone 1.4 · Conc 2.3 · Acc 2.6 · **11.3/15**
+
+**Flags:** 5 preamble · 6 hallucination · 4 echo · 2 CTA-parrot · 11 misattribution
+
+**Bottom 5**
+| # | Score | Genre | Issue |
+|---|-------|-------|-------|
+| 3 | 3 | Latin | Complete misattribution—Anthony Santos nowhere in context. This is Bad Bunny. |
+| 49 | 3 | Hip-Hop/Rap | Output is 'NA'—model refused to generate. |
+| 64 | 3 | R&B/Soul | Model refused to generate ('I don't know'). |
+| 78 | 3 | Hip-Hop/Rap | Model refused to generate ('I don't know'). |
+| 19 | 5 | Pop | Fabricates artist 'NA'—context doesn't name an artist for 'Yukon.' |
+
+**Top 5**
+| # | Score | Genre | Note |
+|---|-------|-------|------|
+| 8 | 15 | Latin | Excellent—concise, grounded, sounds like a liner note. |
+| 88 | 14 | R&B/Soul | Concise, faithful, decent tone. |
+| 86 | 14 | Country | Concise, faithful, decent tone. |
+| 85 | 14 | Indie Rock | Concise, faithful, decent tone. |
+| 76 | 14 | R&B/Soul | Concise, faithful, decent tone. |

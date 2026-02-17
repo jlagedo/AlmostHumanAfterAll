@@ -45,15 +45,16 @@ Once the user approves (or adjusts) the plan:
 
 - Create `ml/prompts/fm_instruction_vN.json` (increment version number)
 - Optionally edit `ml/eval/gen_fm_prompt.py` if the prompt template needs changes
-- Update `ml/eval/run_fm.sh` to point at the new instruction file
+- `run_fm.sh` derives the instruction file from the version arg — no need to edit it
 
-Key principles from the prompt guide:
-- Numbered rules work better than bullet points for the 3B model
+Key principles (confirmed across v8–v15 iterations):
+- Numbered rules work significantly better than prose for the 3B model
 - "DO NOT" in caps for hard constraints
-- Few-shot examples are the strongest signal — add examples for edge cases
-- Delimiter wrapping (`[Context]...[End of Context]`) prevents echo
+- **DO NOT use few-shot examples** — the 3B model copies example content verbatim as fact, even with explicit fencing. This was confirmed in v15: examples caused hallucination to spike (8→18), removing them brought it back down (18→6).
+- Delimiter wrapping (`[Context]...[End of Context]`, `[Facts]...[End of Facts]`) prevents echo
 - Keep instructions concise — they count against the 4,096-token context window
-- Too many DON'Ts make the model clinical and flat — balance constraints with voice
+- The dual-stage pipeline (extract facts → write from facts) is now the default and reduces hallucination
+- The extraction prompt should strip dates — adding "DO NOT include release dates or years" to extraction eliminated date-parrot (16→0)
 
 ### 4. Regenerate and run
 
@@ -63,6 +64,7 @@ cd ml/eval && ./run_fm.sh vN -limit 10
 ```
 
 Use a 5-minute timeout for the runner — it's calling the on-device model.
+For full runs (94 prompts, dual-stage = 188 model calls), use a 5-minute timeout.
 
 ### 5. Remind user to rank
 
@@ -82,9 +84,15 @@ Once the user has run the ranking and the results are in `version_rank.md`:
 
 - Read the updated `version_rank.md` to compare the new version against previous ones
 - Read `vrank/{version}_details.md` for per-response breakdown
-- A real improvement needs a total delta of at least ~1.5 to clear run-to-run noise
+- A real improvement needs a total delta of at least ~0.7 to clear run-to-run noise
 - Flag counts (especially H and M) are the most stable signal
 - Suggest another iteration with specific changes, or declare the version ready for a full run
+
+### Known issues to solve (as of v15)
+
+- **Misattribution (11 flags)**: Model confuses sample credits with the main artist. The extraction step should distinguish "samples X by Y" from the song's own artist/content.
+- **Japanese/non-Latin names**: Model fabricates romanizations (米津玄師 → "Masashi Hamashi"). Names must pass through exactly as written — extraction and writing prompts should enforce this.
+- **Thin-context tracks**: When facts are sparse, the model pads with fabricated claims. The extraction NA→skip path helps but some still slip through.
 
 ## Do NOT
 
@@ -93,3 +101,4 @@ Once the user has run the ranking and the results are in `version_rank.md`:
 - Run without `-limit` unless the user explicitly asks for a full run.
 - Run `rank_output.py` — it calls `claude -p` and cannot be nested inside Claude Code.
 - Score or evaluate raw output JSONL yourself — always use the ranking results.
+- Use few-shot examples in instruction files — the 3B model copies them verbatim as fact.

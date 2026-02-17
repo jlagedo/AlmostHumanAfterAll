@@ -12,6 +12,7 @@ to eval/vrank/{version}_details.md.
 Re-running the same version replaces previous results.
 """
 
+import ast
 import json
 import re
 import subprocess
@@ -181,9 +182,9 @@ def call_claude(system: str, user: str) -> str:
         [
             "claude", "-p",
             "--model", "sonnet",
-            "--output-format", "json",
-            "--max-turns", "1",
-            "--append-system-prompt", system,
+            "--tools", "",
+            "--no-session-persistence",
+            "--system-prompt", system,
         ],
         input=user,
         capture_output=True,
@@ -197,47 +198,14 @@ def call_claude(system: str, user: str) -> str:
         log_err(proc.stderr)
         sys.exit(1)
 
-    # Parse JSON envelope to extract response text and metadata
-    try:
-        envelope = json.loads(proc.stdout)
-        msg = envelope[-1] if isinstance(envelope, list) else envelope
+    text = proc.stdout.strip()
+    if not text:
+        log_err("Empty response from Claude")
+        if proc.stderr:
+            log_err(proc.stderr)
+        sys.exit(1)
 
-        # Extract text — try known content structures
-        text = ""
-        if "content" in msg:
-            for block in msg["content"]:
-                if isinstance(block, dict) and block.get("type") == "text":
-                    text += block["text"]
-                elif isinstance(block, str):
-                    text += block
-        elif "result" in msg:
-            text = msg["result"]
-        elif "text" in msg:
-            text = msg["text"]
-
-        if not text:
-            # Dump structure for debugging
-            log_warn("Empty text extracted from JSON envelope")
-            keys = list(msg.keys()) if isinstance(msg, dict) else type(msg).__name__
-            log_info(f"Envelope keys: {keys}")
-            log_info(f"Raw (first 1000): {proc.stdout[:1000]}")
-            sys.exit(1)
-
-        # Log metadata
-        usage = msg.get("usage", {})
-        cost_raw = msg.get("cost_usd", msg.get("cost"))
-        in_tok = usage.get("input_tokens", "?")
-        out_tok = usage.get("output_tokens", "?")
-        cost = f"${cost_raw:.4f}" if isinstance(cost_raw, (int, float)) else "?"
-        log_ok(
-            f"Response in {elapsed:.1f}s · "
-            f"{in_tok} in / {out_tok} out · cost {cost}"
-        )
-    except (json.JSONDecodeError, KeyError, IndexError):
-        # Fallback: treat stdout as plain text
-        log_warn("Could not parse JSON envelope, falling back to raw output")
-        text = proc.stdout
-        log_ok(f"Response received: {len(text):,} chars in {elapsed:.1f}s")
+    log_ok(f"Response in {elapsed:.1f}s · {len(text):,} chars")
 
     if proc.stderr:
         for line in proc.stderr.strip().splitlines():
@@ -255,7 +223,12 @@ def parse_scores(raw: str) -> list[dict]:
         log_err("Failed to find JSON array in Claude output")
         log_err(f"First 500 chars:\n{raw[:500]}")
         sys.exit(1)
-    scores = json.loads(m.group())
+    text = m.group()
+    try:
+        scores = json.loads(text)
+    except json.JSONDecodeError:
+        # LLM sometimes returns Python-style literals (single quotes, trailing commas)
+        scores = ast.literal_eval(text)
     log_ok(f"Parsed {len(scores)} score objects")
     return scores
 
