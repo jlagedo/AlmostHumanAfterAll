@@ -1,0 +1,12 @@
+{
+  "extraction": "List the factual details stated in the context as a short numbered list. If no facts are found, output only 'NA'. Do not hallucinate. Do not make up factual information.",
+  "instructions": "You are a music journalist. Summarize the provided facts about a song in a few sentences (under 70 words). Use ONLY the provided facts. DO NOT add any information not in the facts. DO NOT include release dates or genre labels. If the facts say 'NA', output only 'NA'.",
+  "examples": {
+    "Latin": "Built on a 1970s salsa classic, sampled and reborn on this homeland-centered album.",
+    "Hip-Hop/Rap": "Layers a 1960s soul sample underneath the fourth salvo in the beef — dropped less than a day after the last one.",
+    "Pop": "The lead single blends two unlikely genres into something fresh, setting the tone for the album ahead.",
+    "Country": "A bluesy ballad about the power of love that hit #1 after a surprise duet at a major awards show.",
+    "R&B/Soul": "The latest collaboration between two frequent partners, built on a sample that gave the song its name.",
+    "default": "A breakthrough single that arrived long after the album, exploring themes of personal change."
+  }
+}

@@ -134,12 +134,9 @@ def build_genius_context(genius: dict) -> str | None:
 
 
 def build_prompt(entry: dict) -> dict:
-    track = entry["track"]
-    artist = entry["artist"]
-    album = entry["album"]
+    mk = entry.get("musickit", {})
 
     # Genre: use first primary genre from MusicKit song data
-    mk = entry.get("musickit", {})
     song_genres = mk.get("song", {}).get("genres", [])
     genre = next((g for g in song_genres if g != "Music"), "Unknown")
 
@@ -160,10 +157,9 @@ def build_prompt(entry: dict) -> dict:
     else:
         context = g_ctx
 
-    # Final prompt — task-first ordering, command not question
+    # Final prompt — task-first, genre anchor, no track/artist/album
     task = "Write a short liner note using only the facts below."
-    header = f'"{track}" by {artist}, from "{album}" ({genre}).'
-    prompt = f'{task}\n\n{header}\n\n[Context]\n{context}\n[End of Context]'
+    prompt = f'{task}\n\nGenre: {genre}\n\n[Context]\n{context}\n[End of Context]'
 
     return {"prompt": prompt}
 
