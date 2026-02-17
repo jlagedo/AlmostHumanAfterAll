@@ -15,7 +15,7 @@ DerivedData/
 .swiftpm/
 
 # Claude Code
-.claude/
+.claude/settings.json
 
 # Secrets
 Secrets.xcconfig
