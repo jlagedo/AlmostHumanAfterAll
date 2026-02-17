@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Rank AFM 3B output quality using Claude CLI as LLM judge.
+"""Rank AFM 3B output quality using Anthropic API as LLM judge.
 
 Usage:
     uv run python eval/rank_output.py data/eval_output/output_v14_*.jsonl
-    uv run python eval/rank_output.py data/eval_output/output_v14_*.jsonl --limit 10
+    uv run python eval/rank_output.py -l 10 data/eval_output/output_v14_*.jsonl
+    uv run python eval/rank_output.py -l 5 -p 2 data/eval_output/output_v14_*.jsonl
 
 Scores each prompt/response pair on 5 dimensions (0-3), flags failure
 patterns, updates eval/version_rank.md and writes per-response details
@@ -12,14 +13,21 @@ to eval/vrank/{version}_details.md.
 Re-running the same version replaces previous results.
 """
 
-import ast
+import argparse
 import json
 import re
-import subprocess
+import anthropic
+import pydantic
 import sys
 import time
 from datetime import date
 from pathlib import Path
+
+from rich.console import Console
+from rich.table import Table
+
+console = Console()
+err_console = Console(stderr=True)
 
 EVAL_DIR = Path(__file__).parent
 RANK_FILE = EVAL_DIR / "version_rank.md"
@@ -35,66 +43,54 @@ FLAG_NAMES = {
     "M": "misattribution",
 }
 
-# ── Colors ───────────────────────────────────────────────────
-
-DIM = "\033[2m"
-BOLD = "\033[1m"
-RED = "\033[31m"
-GREEN = "\033[32m"
-YELLOW = "\033[33m"
-BLUE = "\033[34m"
-MAGENTA = "\033[35m"
-CYAN = "\033[36m"
-RESET = "\033[0m"
-
 FLAG_COLORS = {
-    "P": YELLOW,
-    "H": RED,
-    "D": BLUE,
-    "E": MAGENTA,
-    "C": YELLOW,
-    "M": RED,
+    "P": "yellow",
+    "H": "red",
+    "D": "blue",
+    "E": "magenta",
+    "C": "yellow",
+    "M": "red",
 }
 
 
 def log_phase(msg: str) -> None:
-    print(f"\n{CYAN}{BOLD}▸ {msg}{RESET}")
+    console.print(f"\n[bold cyan]▸ {msg}")
 
 
 def log_info(msg: str) -> None:
-    print(f"  {DIM}{msg}{RESET}")
+    console.print(f"  [dim]{msg}")
 
 
 def log_ok(msg: str) -> None:
-    print(f"  {GREEN}✓{RESET} {msg}")
+    console.print(f"  [green]✓[/] {msg}")
 
 
 def log_warn(msg: str) -> None:
-    print(f"  {YELLOW}⚠{RESET} {msg}")
+    console.print(f"  [yellow]⚠[/] {msg}")
 
 
 def log_err(msg: str) -> None:
-    print(f"  {RED}✗{RESET} {msg}", file=sys.stderr)
+    err_console.print(f"  [red]✗[/] {msg}")
 
 
 def log_file(path: Path) -> None:
-    print(f"  {DIM}→{RESET} {path}")
+    console.print(f"  [dim]→[/] {path}")
 
 
 def color_score(score: float, max_score: float) -> str:
     ratio = score / max_score
     if ratio >= 0.8:
-        c = GREEN
+        c = "green"
     elif ratio >= 0.5:
-        c = YELLOW
+        c = "yellow"
     else:
-        c = RED
-    return f"{c}{BOLD}{score:.1f}{RESET}"
+        c = "red"
+    return f"[{c} bold]{score:.1f}[/]"
 
 
 def color_flag(code: str, count: int) -> str:
-    c = FLAG_COLORS.get(code, RESET)
-    return f"{c}{count}{code}{RESET}"
+    c = FLAG_COLORS.get(code, "")
+    return f"[{c}]{count}{code}[/]" if c else f"{count}{code}"
 
 
 # ── Prompt ───────────────────────────────────────────────────
@@ -128,7 +124,9 @@ minor stretch. 3 = fully grounded in provided context.
 ## Flags — tag ALL that apply
 
 P = preamble ("Here is…", "Liner note:", bold headers, meta-framing)
-H = hallucination (fabricated names, facts, or details absent from context)
+H = hallucination (states a specific name, fact, or claim that is **fabricated or \
+objectively false** vs the context. Vague filler, omissions, paraphrases, and \
+interpretive stretches are NOT hallucination — score those under groundedness.)
 D = date-parrot (includes release dates in the liner note)
 E = echo (verbatim repeats large chunks of the context)
 C = CTA-parrot (echoes marketing language like "Pre-add now")
@@ -138,12 +136,21 @@ M = misattribution (wrong artist, wrong song title, confused identity)
 
 Score relative to 3B-model capability. 3/3 = best a 3B model can do.
 Do NOT penalise for lack of flourish a larger model might add.
-DO penalise harshly for hallucination and misattribution — unacceptable at any scale.
+DO penalise harshly for hallucination and misattribution — these deliver \
+false information to the user and are unacceptable at any scale.
+Be LENIENT on edge cases: if a claim is a reasonable inference from context, \
+or a loose paraphrase, it is NOT hallucination. Only flag H when the model \
+invents something a reader would believe that is objectively wrong.
 
 ## Output format
 
-Respond with ONLY a JSON array. No markdown fences, no explanation.
-[{{"id":1,"faith":2,"ground":1,"tone":2,"conc":1,"acc":2,"flags":["D"],"note":"short reason"}}]"""
+Return a `scores` array with one object per response, using the exact field names: \
+id, faith, ground, tone, conc, acc, flags, note.
+
+The `note` field MUST cite specific evidence from the response. \
+For H or M flags, quote the exact phrase that is fabricated or misattributed \
+(e.g. "hallucinated 'Grammy-winning' — not in context"). \
+For clean responses, note which context facts were used."""
 
 USER_PROMPT = """\
 Score each response below against its prompt context.
@@ -172,76 +179,142 @@ def build_responses_block(entries: list[dict]) -> str:
     return "\n\n".join(parts)
 
 
-def call_claude(system: str, user: str) -> str:
-    log_phase("Calling claude -p --model sonnet")
-    total_len = len(system) + len(user)
-    log_info(f"System: {len(system):,} chars · User: {len(user):,} chars (~{total_len // 4:,} tokens)")
+class ScoreItem(pydantic.BaseModel):
+    id: int
+    faith: int
+    ground: int
+    tone: int
+    conc: int
+    acc: int
+    flags: list[str]
+    note: str
+
+
+class ScoreResponse(pydantic.BaseModel):
+    scores: list[ScoreItem]
+
+
+def call_judge(client: anthropic.Anthropic, user: str) -> tuple[list[dict], dict]:
+    """Send the eval prompt to the API and return (parsed scores, usage dict)."""
+    log_phase("Calling Anthropic API (claude-sonnet-4-5-20250929)")
+    total_len = len(SYSTEM_PROMPT) + len(user)
+    log_info(f"System: {len(SYSTEM_PROMPT):,} chars · User: {len(user):,} chars (~{total_len // 4:,} tokens)")
 
     t0 = time.time()
-    proc = subprocess.run(
-        [
-            "claude", "-p",
-            "--model", "sonnet",
-            "--tools", "",
-            "--no-session-persistence",
-            "--system-prompt", system,
-        ],
-        input=user,
-        capture_output=True,
-        text=True,
-        timeout=600,
-    )
+    with console.status("[bold cyan]Waiting for response…"):
+        try:
+            response = client.messages.parse(
+                model="claude-sonnet-4-5-20250929",
+                temperature=0,
+                max_tokens=16384,
+                system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+                messages=[{"role": "user", "content": [{"type": "text", "text": user, "cache_control": {"type": "ephemeral"}}]}],
+                output_format=ScoreResponse,
+            )
+        except anthropic.APIError as e:
+            elapsed = time.time() - t0
+            log_err(f"API error after {elapsed:.1f}s: {e}")
+            sys.exit(1)
+        except pydantic.ValidationError as e:
+            elapsed = time.time() - t0
+            log_err(f"Response parse failed after {elapsed:.1f}s — output likely truncated (raise max_tokens)")
+            log_err(str(e.errors()[0]["type"]))
+            sys.exit(1)
     elapsed = time.time() - t0
 
-    if proc.returncode != 0:
-        log_err(f"Claude failed after {elapsed:.1f}s")
-        log_err(proc.stderr)
+    parsed = response.parsed_output
+    if not parsed or not parsed.scores:
+        log_err("Empty or unparseable response from API")
+        sys.exit(1)
+    if response.stop_reason == "max_tokens":
+        log_warn(f"Response hit max_tokens — got {len(parsed.scores)} scores, expected more")
         sys.exit(1)
 
-    text = proc.stdout.strip()
-    if not text:
-        log_err("Empty response from Claude")
-        if proc.stderr:
-            log_err(proc.stderr)
-        sys.exit(1)
-
-    log_ok(f"Response in {elapsed:.1f}s · {len(text):,} chars")
-
-    if proc.stderr:
-        for line in proc.stderr.strip().splitlines():
-            log_info(f"claude stderr: {line}")
-
-    return text
-
-
-def parse_scores(raw: str) -> list[dict]:
-    log_phase("Parsing scores")
-    cleaned = re.sub(r"```json\s*", "", raw)
-    cleaned = re.sub(r"```\s*", "", cleaned)
-    m = re.search(r"\[.*\]", cleaned, re.DOTALL)
-    if not m:
-        log_err("Failed to find JSON array in Claude output")
-        log_err(f"First 500 chars:\n{raw[:500]}")
-        sys.exit(1)
-    text = m.group()
-    try:
-        scores = json.loads(text)
-    except json.JSONDecodeError:
-        # LLM sometimes returns Python-style literals (single quotes, trailing commas)
-        scores = ast.literal_eval(text)
-    log_ok(f"Parsed {len(scores)} score objects")
-    return scores
+    u = response.usage
+    cache_read = u.cache_read_input_tokens or 0
+    cache_create = u.cache_creation_input_tokens or 0
+    usage = {"input": u.input_tokens + cache_read + cache_create, "output": u.output_tokens}
+    cache_parts = []
+    if cache_read:
+        cache_parts.append(f"[green]{cache_read:,} cached[/]")
+    if cache_create:
+        cache_parts.append(f"{cache_create:,} written")
+    cache_str = f" · {' · '.join(cache_parts)}" if cache_parts else ""
+    log_ok(
+        f"Response in {elapsed:.1f}s · {len(parsed.scores)} scores · "
+        f"[dim]{usage['input']:,} in / {usage['output']:,} out{cache_str}[/]"
+    )
+    return [s.model_dump() for s in parsed.scores], usage
 
 
-def rank_entries(entries: list[dict]) -> list[dict]:
-    """Score all entries in a single Claude call."""
-    log_phase("Building prompt")
-    block = build_responses_block(entries)
-    user = USER_PROMPT.format(responses=block)
-    log_ok(f"{len(entries)} responses assembled")
+def merge_passes(all_passes: list[list[dict]]) -> list[dict]:
+    """Average dimension scores across passes, majority-vote flags."""
+    n_passes = len(all_passes)
+    n_items = len(all_passes[0])
+    merged = []
+    for i in range(n_items):
+        item = {"id": all_passes[0][i]["id"]}
+        for d in DIMS:
+            item[d] = round(sum(p[i][d] for p in all_passes) / n_passes, 1)
+        # flags: majority vote (present in >50% of passes)
+        flag_counts: dict[str, int] = {}
+        for p in all_passes:
+            for f in p[i].get("flags", []):
+                flag_counts[f] = flag_counts.get(f, 0) + 1
+        item["flags"] = [f for f in FLAG_CODES if flag_counts.get(f, 0) > n_passes / 2]
+        item["note"] = all_passes[0][i].get("note", "")
+        merged.append(item)
+    return merged
 
-    raw = call_claude(SYSTEM_PROMPT, user)
-    return parse_scores(raw)
+
+def compute_pass_variance(all_passes: list[list[dict]]) -> dict:
+    """Compute cross-pass variance for each dimension, total, and flag splits."""
+    n_passes = len(all_passes)
+    n_items = len(all_passes[0])
+    pass_dim_avgs: dict[str, list[float]] = {d: [] for d in DIMS}
+    pass_totals: list[float] = []
+    for scores in all_passes:
+        n = len(scores)
+        dim_avgs = {d: sum(s[d] for s in scores) / n for d in DIMS}
+        for d in DIMS:
+            pass_dim_avgs[d].append(dim_avgs[d])
+        pass_totals.append(sum(dim_avgs.values()))
+
+    def var(xs: list[float]) -> float:
+        mean = sum(xs) / len(xs)
+        return sum((x - mean) ** 2 for x in xs) / len(xs)
+
+    # Flag splits: count items where passes disagreed on each flag
+    flag_splits: dict[str, int] = {}
+    for f in FLAG_CODES:
+        splits = 0
+        for i in range(n_items):
+            votes = sum(1 for p in all_passes if f in p[i].get("flags", []))
+            if 0 < votes < n_passes:
+                splits += 1
+        if splits:
+            flag_splits[f] = splits
+
+    # Per-item H flag votes
+    h_votes: list[tuple[int, int]] = []  # (item_id, vote_count)
+    for i in range(n_items):
+        votes = sum(1 for p in all_passes if "H" in p[i].get("flags", []))
+        if votes > 0:
+            h_votes.append((all_passes[0][i]["id"], votes))
+    h_per_pass = [
+        sum(1 for s in p if "H" in s.get("flags", [])) for p in all_passes
+    ]
+
+    return {
+        "pass_totals": pass_totals,
+        "var_total": var(pass_totals),
+        "dim_vars": {d: var(pass_dim_avgs[d]) for d in DIMS},
+        "flag_splits": flag_splits,
+        "n_items": n_items,
+        "h_per_pass": h_per_pass,
+        "h_votes": h_votes,
+        "n_passes": n_passes,
+    }
 
 
 # ── Aggregation ──────────────────────────────────────────────
@@ -258,7 +331,7 @@ def compute_summary(scores: list[dict]) -> dict:
             flag_counts[f] = flag_counts.get(f, 0) + 1
 
     for s in scores:
-        s["total"] = sum(s[d] for d in DIMS)
+        s["total"] = round(sum(s[d] for d in DIMS), 1)
 
     ranked = sorted(scores, key=lambda s: s["total"])
     return {
@@ -286,7 +359,7 @@ def fmt_flags_long(fc: dict[str, int]) -> str:
 
 def fmt_flags_colored(fc: dict[str, int]) -> str:
     parts = [color_flag(c, fc[c]) for c in FLAG_CODES if c in fc]
-    return " ".join(parts) or f"{DIM}none{RESET}"
+    return " ".join(parts) or "[dim]none[/]"
 
 
 def fmt_flags_inline(flags: list[str]) -> str:
@@ -377,10 +450,10 @@ def write_details(
         flags = fmt_flags_inline(s.get("flags", []))
 
         lines += [
-            f"### #{s['id']} · {genre} · {s['total']}/15 · {flags}",
+            f"### #{s['id']} · {genre} · {s['total']:g}/15 · {flags}",
             "",
-            f"Faith {s['faith']} · Ground {s['ground']} · "
-            f"Tone {s['tone']} · Conc {s['conc']} · Acc {s['acc']}",
+            f"Faith {s['faith']:g} · Ground {s['ground']:g} · "
+            f"Tone {s['tone']:g} · Conc {s['conc']:g} · Acc {s['acc']:g}",
             "",
             f"> **{s.get('note', '')}**",
             "",
@@ -448,13 +521,30 @@ def update_rank_file(
 # ── Terminal results ─────────────────────────────────────────
 
 
+def _make_table(title: str, style: str, rows: list[dict], entries: list[dict]) -> Table:
+    table = Table(title=title, title_style=f"bold {style}", show_edge=False, pad_edge=False)
+    table.add_column("#", style="dim", justify="right")
+    table.add_column("Score", style=style, justify="right")
+    table.add_column("Genre", style="dim")
+    table.add_column("Flags")
+    table.add_column("Note")
+    for s in rows:
+        idx = s["id"] - 1
+        genre = extract_genre(entries[idx]["prompt"]) if idx < len(entries) else "?"
+        flags = " ".join(
+            f"[{FLAG_COLORS.get(f, '')}]{f}[/]" for f in s.get("flags", [])
+        )
+        table.add_row(str(s["id"]), f"{s['total']}/15", genre, flags, s.get("note", ""))
+    return table
+
+
 def print_results(version: str, summary: dict, entries: list[dict]) -> None:
     a = summary["avgs"]
 
-    log_phase(f"Results for {BOLD}{version}{RESET}")
+    log_phase(f"Results for [bold]{version}")
 
     # Dimension scores
-    print(
+    console.print(
         f"  Faith {color_score(a['faith'], 3)} · "
         f"Ground {color_score(a['ground'], 3)} · "
         f"Tone {color_score(a['tone'], 3)} · "
@@ -465,72 +555,68 @@ def print_results(version: str, summary: dict, entries: list[dict]) -> None:
 
     # Flags
     if summary["flag_counts"]:
-        print(f"  Flags: {fmt_flags_colored(summary['flag_counts'])}")
+        console.print(f"  Flags: {fmt_flags_colored(summary['flag_counts'])}")
 
-    # Bottom 5
-    print(f"\n  {RED}{BOLD}Bottom 5{RESET}")
-    for s in summary["bottom"]:
-        idx = s["id"] - 1
-        genre = extract_genre(entries[idx]["prompt"]) if idx < len(entries) else "?"
-        flags = " ".join(
-            f"{FLAG_COLORS.get(f, '')}{f}{RESET}" for f in s.get("flags", [])
-        )
-        print(
-            f"  {DIM}#{s['id']:>3}{RESET}  "
-            f"{RED}{s['total']:>2}/15{RESET}  "
-            f"{DIM}{genre:<14}{RESET} "
-            f"{flags:>10}  "
-            f"{s.get('note', '')}"
-        )
-
-    # Top 5
-    print(f"\n  {GREEN}{BOLD}Top 5{RESET}")
-    for s in summary["top"]:
-        idx = s["id"] - 1
-        genre = extract_genre(entries[idx]["prompt"]) if idx < len(entries) else "?"
-        print(
-            f"  {DIM}#{s['id']:>3}{RESET}  "
-            f"{GREEN}{s['total']:>2}/15{RESET}  "
-            f"{DIM}{genre:<14}{RESET} "
-            f"{s.get('note', '')}"
-        )
-    print()
+    console.print()
+    console.print(_make_table("Bottom 5", "red", summary["bottom"], entries))
+    console.print()
+    console.print(_make_table("Top 5", "green", summary["top"], entries))
+    console.print()
 
 
 # ── Main ─────────────────────────────────────────────────────
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
-        print(
-            f"{CYAN}Usage:{RESET} uv run python eval/rank_output.py "
-            f"<output.jsonl> [--limit N]"
-        )
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Rank AFM output quality using LLM judge")
+    parser.add_argument("-l", "--limit", type=int, default=None, help="max entries to evaluate")
+    parser.add_argument("-p", "--passes", type=int, default=1, help="number of judge passes (default: 1)")
+    parser.add_argument("file", type=Path, help="output JSONL file to evaluate")
+    args = parser.parse_args()
 
-    path = Path(sys.argv[1])
+    path: Path = args.file
     if not path.exists():
         log_err(f"Not found: {path}")
         sys.exit(1)
 
-    limit = None
-    if "--limit" in sys.argv:
-        limit = int(sys.argv[sys.argv.index("--limit") + 1])
-
+    limit = args.limit
+    passes = args.passes
     version = extract_version(path)
     today = date.today().isoformat()
 
-    log_phase(f"Loading {BOLD}{path.name}{RESET}")
+    log_phase(f"Loading [bold]{path.name}")
     entries = [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
     if limit:
         entries = entries[:limit]
         log_info(f"Limited to {limit} entries")
-    log_ok(f"{len(entries)} responses loaded for {BOLD}{version}{RESET}")
+    log_ok(f"{len(entries)} responses loaded for [bold]{version}")
 
-    scores = rank_entries(entries)
+    # Build prompt once
+    log_phase("Building prompt")
+    block = build_responses_block(entries)
+    user = USER_PROMPT.format(responses=block)
+    log_ok(f"{len(entries)} responses assembled")
 
-    if len(scores) != len(entries):
-        log_warn(f"Got {len(scores)} scores for {len(entries)} entries")
+    # Run judge passes
+    client = anthropic.Anthropic()
+    all_passes = []
+    total_usage = {"input": 0, "output": 0}
+    for p in range(passes):
+        if passes > 1:
+            log_phase(f"Pass {p + 1}/{passes}")
+        scores_p, usage = call_judge(client, user)
+        total_usage["input"] += usage["input"]
+        total_usage["output"] += usage["output"]
+        if len(scores_p) != len(entries):
+            log_warn(f"Got {len(scores_p)} scores for {len(entries)} entries")
+        all_passes.append(scores_p)
+
+    if passes > 1:
+        variance = compute_pass_variance(all_passes)
+        scores = merge_passes(all_passes)
+    else:
+        scores = all_passes[0]
+        variance = None
 
     log_phase("Computing summary")
     summary = compute_summary(scores)
@@ -543,6 +629,74 @@ def main() -> None:
     log_file(detail_path)
 
     print_results(version, summary, entries)
+
+    if variance:
+        log_phase(f"Variance across {passes} passes")
+        for t in variance["pass_totals"]:
+            log_info(f"Pass total: {t:.2f}/15")
+        dv = variance["dim_vars"]
+        console.print(
+            f"  [dim]Var[/]  "
+            f"Faith {dv['faith']:.3f} · Ground {dv['ground']:.3f} · "
+            f"Tone {dv['tone']:.3f} · Conc {dv['conc']:.3f} · "
+            f"Acc {dv['acc']:.3f} · "
+            f"Total [bold]{variance['var_total']:.3f}"
+        )
+        fs = variance["flag_splits"]
+        if fs:
+            n = variance["n_items"]
+            parts = [f"[{FLAG_COLORS.get(f, '')}]{f}[/] {c}/{n}" for f, c in fs.items()]
+            console.print(f"  [dim]Flag splits[/]  {' · '.join(parts)}")
+        else:
+            console.print(f"  [dim]Flag splits[/]  none (all passes agreed)")
+
+        # Hallucination detail
+        h_votes = variance["h_votes"]
+        n_passes_v = variance["n_passes"]
+        n = variance["n_items"]
+        log_phase("Hallucination flag detail")
+
+        h_per = variance["h_per_pass"]
+        console.print(f"  [dim]H per pass[/]  {' · '.join(str(c) for c in h_per)}")
+
+        unanimous = [v for v in h_votes if v[1] == n_passes_v]
+        split = [v for v in h_votes if v[1] < n_passes_v]
+        clean = n - len(h_votes)
+
+        console.print(
+            f"  [green]{clean}[/] clean · "
+            f"[red]{len(unanimous)}[/] unanimous H · "
+            f"[yellow]{len(split)}[/] split"
+        )
+
+        if split:
+            table = Table(
+                title="Split H items", title_style="bold yellow",
+                show_edge=False, pad_edge=False,
+            )
+            table.add_column("#", style="dim", justify="right")
+            table.add_column("Votes", justify="center")
+            table.add_column("Genre", style="dim")
+            table.add_column("Note")
+            for item_id, votes in sorted(split, key=lambda x: -x[1]):
+                idx = item_id - 1
+                genre = extract_genre(entries[idx]["prompt"]) if idx < len(entries) else "?"
+                # get note from merged scores
+                note = next((s.get("note", "") for s in scores if s["id"] == item_id), "")
+                table.add_row(
+                    str(item_id),
+                    f"[yellow]{votes}[/]/{n_passes_v}",
+                    genre,
+                    note,
+                )
+            console.print()
+            console.print(table)
+
+    total_tokens = total_usage["input"] + total_usage["output"]
+    console.print(
+        f"  [dim]Tokens: {total_usage['input']:,} in + {total_usage['output']:,} out "
+        f"= {total_tokens:,} total ({passes} pass{'es' if passes > 1 else ''})[/]"
+    )
 
 
 if __name__ == "__main__":

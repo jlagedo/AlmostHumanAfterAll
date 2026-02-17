@@ -137,7 +137,7 @@ func run(_ args: [String], limit: Int? = nil) async {
 
             // Stage 1: Extract facts
             let extractSession = LanguageModelSession(instructions: extractionInstructions!)
-            let extractResult = try await extractSession.respond(to: contextPrompt)
+            let extractResult = try await extractSession.respond(to: contextPrompt, options: GenerationOptions(temperature: 0.3))
             let facts = extractResult.content
             extractedFacts = facts
             logger.info("[\(i + 1)] Facts: \(facts, privacy: .public)")
@@ -170,7 +170,7 @@ func run(_ args: [String], limit: Int? = nil) async {
                 [End of Facts]
                 """
                 let writeSession = LanguageModelSession(instructions: writeInstructions)
-                let writeResult = try await writeSession.respond(to: writePrompt)
+                let writeResult = try await writeSession.respond(to: writePrompt, options: GenerationOptions(temperature: 0.7))
                 response = writeResult.content
             }
 
