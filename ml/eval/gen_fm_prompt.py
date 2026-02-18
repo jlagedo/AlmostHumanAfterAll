@@ -13,6 +13,7 @@ Output: data/eval_output/prompts_top100.jsonl — one JSON object per line with
 import argparse
 import json
 import re
+import uuid
 from pathlib import Path
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -180,7 +181,7 @@ def build_prompt(entry: dict) -> dict | None:
         sections.append(f"[Sampled By]\n{'; '.join(sampled_by)}\n[End Sampled By]")
 
 
-    return {"prompt": "\n\n".join(sections)}
+    return {"id": str(uuid.uuid4()), "prompt": "\n\n".join(sections)}
 
 
 def main():
