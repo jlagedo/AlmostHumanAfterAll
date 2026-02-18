@@ -1,21 +1,3 @@
-Architecture-level insights
+Other Side" by Brent Faiyaz from his 2026 album, Icon, is an atmospheric gem. Released on February 13th, 2026, this track stands out as one of Icon's most emotionally resonant moments. Known for its high-energy, "maximalist" sound, "Other Side" offers a compelling contrast, inviting listeners into its rich, soulful embrace. A testament to Faiyaz's artistry, this song is a must-listen for R&B and Soul lovers.
 
-  6. 4,096-token hard limit — This is the API window for instructions + prompt + response combined. We're fine on budget now, but it means the
-  instruction file can't grow much.
-
-  7. "Not designed for world knowledge" — The specs say this directly. This is the root cause of hallucination. When context is thin, the model
-  reaches for world knowledge it doesn't reliably have (Ghostbusters, accordion, "2009"). We're asking it to be creative, but at 3B it can only
-  extract and rephrase what's given.
-
-  8. @Generable structured output — The most powerful idea from the guides. A struct like:
-  @Generable struct Commentary {
-      @Guide(description: "The single most interesting fact from the context")
-      var detail: String      // Generated first — forces extraction
-      @Guide(description: "A warm 1-2 sentence observation about that detail")
-      var commentary: String  // Generated second — grounded in the detail
-  }
-  Properties generate in declaration order, so detail would anchor commentary. This is the "place foundational properties first" pattern. It
-  would structurally prevent hallucination by forcing the model to extract before it writes.
-
-  9. Two-stage pipeline — Apple's Mail Smart Reply uses two separate prompts (extract questions → generate reply). We could do: extract key
-  detail → write liner note. But this doubles latency.
+Other Side" is the fifth track from Brent Faiyaz's studio album, Icon, released on February 13, 2026. Known for its high-energy, "maximalist" sound, this song stands out as one of the album's most atmospheric and emotionally resonant moments. Brent Faiyaz, an American R&B singer-songwriter and producer based in Baltimore, Maryland, first gained attention with his single "Natural Release" and subsequent EP, A.M. Paradox.

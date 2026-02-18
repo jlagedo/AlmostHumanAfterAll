@@ -33,11 +33,10 @@ EVAL_DIR = Path(__file__).parent
 RANK_FILE = EVAL_DIR / "version_rank.md"
 DETAILS_DIR = EVAL_DIR / "vrank"
 DIMS = ["faith", "ground", "tone", "conc", "acc"]
-FLAG_CODES = "PHDECM"
+FLAG_CODES = "PHECM"
 FLAG_NAMES = {
     "P": "preamble",
     "H": "hallucination",
-    "D": "date-parrot",
     "E": "echo",
     "C": "CTA-parrot",
     "M": "misattribution",
@@ -46,7 +45,6 @@ FLAG_NAMES = {
 FLAG_COLORS = {
     "P": "yellow",
     "H": "red",
-    "D": "blue",
     "E": "magenta",
     "C": "yellow",
     "M": "red",
@@ -101,46 +99,52 @@ on-device 3B Foundation Model (AFM) for a music commentary app.
 
 ## Rubric — score each dimension 0-3
 
-**Faithfulness (faith):** Only facts from the [Context] are used.
-0 = fabricated names/facts. 1 = partial hallucination. 2 = mostly faithful, \
-minor stretch. 3 = fully grounded in provided context.
+**Faithfulness (faith):** Only facts from the provided sections are used.
+0 = fabricated names/facts. 1 = partial fabrication. 2 = mostly faithful, \
+minor stretch. 3 = fully grounded in provided sections.
 
 **Groundedness (ground):** Every sentence maps to a specific provided fact.
-0 = generic filler with no connection. 1 = mostly filler. 2 = some padding. \
-3 = every claim traceable to context.
+0 = generic filler with no connection. 1 = mostly filler. 2 = some padding \
+but core claims are grounded. 3 = every claim traceable to provided sections. \
+Note: connecting language ("is a track that…", "featuring…") is structural glue, \
+not filler — do not penalise it.
 
-**Tone (tone):** Reads like a music journalist liner note — warm, opinionated, compact.
-0 = robotic/Wikipedia. 1 = flat but functional. 2 = decent voice. \
-3 = genuinely sounds like a liner note.
+**Tone (tone):** Reads like a natural, descriptive song presentation.
+0 = robotic/Wikipedia dump. 1 = flat but reads as coherent prose. \
+2 = natural-sounding, reads well. 3 = has personality or descriptive flair.
 
 **Conciseness (conc):** 2-3 sentences, no meta-framing, no wasted tokens.
-0 = bloated or preamble-heavy. 1 = too long or has "Here is a liner note…". \
+0 = bloated or preamble-heavy. 1 = too long or has "Here is…". \
 2 = mostly tight. 3 = clean and compact.
 
-**Accuracy (acc):** Artist names, song titles, factual claims correct vs context.
+**Accuracy (acc):** Artist names, song titles, factual claims correct vs provided sections.
 0 = wrong artist/attribution. 1 = significant error. 2 = minor imprecision. \
 3 = fully correct.
 
 ## Flags — tag ALL that apply
 
-P = preamble ("Here is…", "Liner note:", bold headers, meta-framing)
-H = hallucination (states a specific name, fact, or claim that is **fabricated or \
-objectively false** vs the context. Vague filler, omissions, paraphrases, and \
-interpretive stretches are NOT hallucination — score those under groundedness.)
-D = date-parrot (includes release dates in the liner note)
-E = echo (verbatim repeats large chunks of the context)
+P = preamble ("Here is…", "Sure,", "Liner note:", bold headers, meta-framing)
+H = hallucination (the model **invented a specific fact that is objectively false** \
+and does not appear anywhere in the provided sections. \
+These are NOT hallucination: misattribution (flag M instead), including dates from \
+the provided sections, loose paraphrases, editorial flair, connecting language, \
+embellishments, vague filler, omissions, or reasonable inferences from context. \
+If a date appears in any provided section and the model repeats it, that is NOT hallucination.)
+E = echo (verbatim repeats large chunks of the provided sections)
 C = CTA-parrot (echoes marketing language like "Pre-add now")
 M = misattribution (wrong artist, wrong song title, confused identity)
 
-## Calibration
+## Calibration — THIS IS A 3B MODEL
 
-Score relative to 3B-model capability. 3/3 = best a 3B model can do.
-Do NOT penalise for lack of flourish a larger model might add.
-DO penalise harshly for hallucination and misattribution — these deliver \
-false information to the user and are unacceptable at any scale.
-Be LENIENT on edge cases: if a claim is a reasonable inference from context, \
-or a loose paraphrase, it is NOT hallucination. Only flag H when the model \
-invents something a reader would believe that is objectively wrong.
+You are scoring a **2-bit quantized 3B on-device model**, not GPT-4 or Claude. \
+Adjust expectations accordingly:
+- 3/3 = best a 3B model can reasonably produce. A clean, natural 2-3 sentence \
+description with no errors IS a 3/3 output for this model.
+- Connecting phrases, simple sentence structures, and functional prose are EXPECTED \
+at this scale — do not penalise for lack of stylistic flourish.
+- Repeating a fact from context in slightly different words is paraphrasing, not filler.
+- Only flag H when the model invents a specific fact that is objectively false and \
+not traceable to any provided section. When in doubt, it is NOT hallucination.
 
 ## Output format
 
@@ -150,7 +154,7 @@ id, faith, ground, tone, conc, acc, flags, note.
 The `note` field MUST cite specific evidence from the response. \
 For H or M flags, quote the exact phrase that is fabricated or misattributed \
 (e.g. "hallucinated 'Grammy-winning' — not in context"). \
-For clean responses, note which context facts were used."""
+For clean responses, note which provided sections were used."""
 
 USER_PROMPT = """\
 Score each response below against its prompt context.
@@ -585,7 +589,7 @@ def main() -> None:
     today = date.today().isoformat()
 
     log_phase(f"Loading [bold]{path.name}")
-    entries = [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
+    entries = [json.loads(l) for l in path.read_text().split("\n") if l.strip()]
     if limit:
         entries = entries[:limit]
         log_info(f"Limited to {limit} entries")

@@ -12,21 +12,18 @@ struct PromptEntry: Codable {
 struct OutputEntry: Codable {
     let prompt: String
     let response: String
-    var facts: String?
 }
 
 struct InstructionsFile: Codable {
     let instructions: String
-    var extraction: String?
-    var examples: [String: String]?
 }
 
-func run(_ args: [String], limit: Int? = nil) async {
+func run(_ args: [String], limit: Int? = nil, temperature: Double = 0.5) async {
     let promptsPath = args[0]
     let instructionsPath = args[1]
     let outputPath = args[2]
 
-    // Read instructions file — JSON with {instructions, extraction?} or plain text fallback
+    // Read instructions file
     guard let instructionsData = FileManager.default.contents(atPath: instructionsPath),
           let rawContent = String(data: instructionsData, encoding: .utf8) else {
         logger.error("Failed to read instructions file: \(instructionsPath, privacy: .public)")
@@ -34,25 +31,14 @@ func run(_ args: [String], limit: Int? = nil) async {
         exit(1)
     }
 
-    let trimmedInstructions: String
-    var extractionInstructions: String? = nil
-    var genreExamples: [String: String] = [:]
-
+    let instructions: String
     if let jsonData = rawContent.data(using: .utf8),
        let parsed = try? JSONDecoder().decode(InstructionsFile.self, from: jsonData) {
-        trimmedInstructions = parsed.instructions.trimmingCharacters(in: .whitespacesAndNewlines)
-        extractionInstructions = parsed.extraction?.trimmingCharacters(in: .whitespacesAndNewlines)
-        genreExamples = parsed.examples ?? [:]
-        logger.info("Loaded JSON instructions (\(trimmedInstructions.count) chars, extraction: \(extractionInstructions != nil), examples: \(genreExamples.count))")
+        instructions = parsed.instructions.trimmingCharacters(in: .whitespacesAndNewlines)
+        logger.info("Loaded JSON instructions (\(instructions.count) chars)")
     } else {
-        // Plain text fallback
-        trimmedInstructions = rawContent.trimmingCharacters(in: .whitespacesAndNewlines)
-        logger.info("Loaded plain text instructions (\(trimmedInstructions.count) chars)")
-    }
-
-    if extractionInstructions == nil {
-        print("Warning: no \"extraction\" field in instructions — extraction step will use default prompt")
-        extractionInstructions = "List the factual details stated in the context as a short numbered list. If no facts are found, output only 'NA'. Do not hallucinate. Do not make up factual information."
+        instructions = rawContent.trimmingCharacters(in: .whitespacesAndNewlines)
+        logger.info("Loaded plain text instructions (\(instructions.count) chars)")
     }
 
     // Read prompts JSONL
@@ -89,7 +75,6 @@ func run(_ args: [String], limit: Int? = nil) async {
         exit(1)
     }
 
-    // Check model availability
     let model = SystemLanguageModel.default
     switch model.availability {
     case .available:
@@ -102,7 +87,6 @@ func run(_ args: [String], limit: Int? = nil) async {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys]
 
-    // Open output file
     FileManager.default.createFile(atPath: outputPath, contents: nil)
     guard let fileHandle = FileHandle(forWritingAtPath: outputPath) else {
         print("Error: cannot open \(outputPath) for writing")
@@ -110,82 +94,22 @@ func run(_ args: [String], limit: Int? = nil) async {
     }
     defer { fileHandle.closeFile() }
 
-    print("Stage 1: extract facts → Stage 2: write liner note")
-
     for (i, entry) in entries.enumerated() {
         let preview = entry.prompt.count > 60 ? String(entry.prompt.prefix(60)) + "…" : entry.prompt
         logger.info("[\(i + 1)/\(entries.count)] Generating: \(preview, privacy: .public)")
         print("[\(i + 1)/\(entries.count)] \(preview)...", terminator: " ")
 
         do {
-            let response: String
-            var extractedFacts: String? = nil
+            let session = LanguageModelSession(instructions: instructions)
+            let result = try await session.respond(to: entry.prompt, options: GenerationOptions(temperature: temperature))
+            let response = result.content
 
-            // Strip the task line to get just the track header + context
-            let promptLines = entry.prompt.components(separatedBy: "\n")
-            let contextPrompt = promptLines
-                .drop(while: { $0.hasPrefix("Write") || $0.trimmingCharacters(in: .whitespaces).isEmpty })
-                .joined(separator: "\n")
-
-            // Extract track header (everything before [Context])
-            let trackHeader: String
-            if let range = contextPrompt.range(of: "\n\n[Context]") {
-                trackHeader = String(contextPrompt[contextPrompt.startIndex..<range.lowerBound])
-            } else {
-                trackHeader = contextPrompt
-            }
-
-            // Stage 1: Extract facts
-            let extractSession = LanguageModelSession(instructions: extractionInstructions!)
-            let extractResult = try await extractSession.respond(to: contextPrompt, options: GenerationOptions(temperature: 0.3))
-            let facts = extractResult.content
-            extractedFacts = facts
-            logger.info("[\(i + 1)] Facts: \(facts, privacy: .public)")
-
-            // Skip writing if extraction found nothing notable
-            if facts.trimmingCharacters(in: .whitespacesAndNewlines) == "NA" {
-                response = "I don't know much about this one, sorry!"
-                print("SKIP (no notable facts)")
-            } else {
-                // Stage 2: Write liner note from extracted facts
-                // Parse genre from trackHeader — e.g. "Genre: Latin"
-                var writeInstructions = trimmedInstructions
-                if let genreLine = trackHeader.components(separatedBy: "\n")
-                    .first(where: { $0.hasPrefix("Genre:") }) {
-                    let genre = genreLine.replacingOccurrences(of: "Genre:", with: "")
-                        .trimmingCharacters(in: .whitespaces)
-                    let example = genreExamples[genre] ?? genreExamples["default"] ?? ""
-                    if !example.isEmpty {
-                        writeInstructions += "\n\nStyle example (DO NOT use content from this example):\n\(example)"
-                    }
-                }
-
-                let writePrompt = """
-                Write a short liner note using only the facts below.
-
-                \(trackHeader)
-
-                [Facts]
-                \(facts)
-                [End of Facts]
-                """
-                let writeSession = LanguageModelSession(instructions: writeInstructions)
-                let writeResult = try await writeSession.respond(to: writePrompt, options: GenerationOptions(temperature: 0.7))
-                response = writeResult.content
-            }
-
-            let output = OutputEntry(
-                prompt: entry.prompt,
-                response: response,
-                facts: extractedFacts
-            )
-
+            let output = OutputEntry(prompt: entry.prompt, response: response)
             let jsonData = try encoder.encode(output)
             if let jsonString = String(data: jsonData, encoding: .utf8) {
                 fileHandle.write((jsonString + "\n").data(using: .utf8)!)
             }
 
-            // Truncate for display
             let responsePreview = response.count > 80 ? String(response.prefix(80)) + "..." : response
             print("OK — \(responsePreview)")
             logger.info("[\(i + 1)] Response: \(response, privacy: .public)")
