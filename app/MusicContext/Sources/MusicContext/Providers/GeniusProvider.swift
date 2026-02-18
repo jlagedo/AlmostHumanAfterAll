@@ -3,17 +3,42 @@ import Foundation
 // MARK: - Provider
 
 public actor GeniusProvider {
-    private static let baseURL = "https://api.genius.com"
-    private let accessToken: String
+    public enum APIMode {
+        case authenticated  // api.genius.com — requires token, rate limited per token
+        case publicAPI      // genius.com/api — no auth needed, rate limited per IP
+    }
+
+    private let accessToken: String?
+    private let apiMode: APIMode
     private let session: URLSession
-    private let rateLimiter = RateLimiter(requestsPerSecond: 5)
+    private let rateLimiter: RateLimiter
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
         return d
     }()
 
-    public init(accessToken: String) {
+    private var baseURL: String {
+        switch apiMode {
+        case .authenticated: "https://api.genius.com"
+        case .publicAPI: "https://genius.com/api"
+        }
+    }
+
+    public init(accessToken: String, mode: APIMode = .authenticated, requestsPerSecond: Double = 5) {
         self.accessToken = accessToken
+        self.apiMode = mode
+        self.rateLimiter = RateLimiter(requestsPerSecond: requestsPerSecond)
+        let config = URLSessionConfiguration.default
+        config.httpAdditionalHeaders = [
+            "Accept": "application/json",
+        ]
+        self.session = URLSession(configuration: config)
+    }
+
+    public init(mode: APIMode = .publicAPI, requestsPerSecond: Double = 5) {
+        self.accessToken = nil
+        self.apiMode = mode
+        self.rateLimiter = RateLimiter(requestsPerSecond: requestsPerSecond)
         let config = URLSessionConfiguration.default
         config.httpAdditionalHeaders = [
             "Accept": "application/json",
@@ -43,7 +68,7 @@ public actor GeniusProvider {
     // MARK: - API Calls
 
     private func searchSong(query: String) async throws -> GeniusSearchResponse {
-        guard var components = URLComponents(string: "\(Self.baseURL)/search") else {
+        guard var components = URLComponents(string: "\(baseURL)/search") else {
             throw MusicContextError.invalidURL("genius search")
         }
         components.queryItems = [
@@ -53,7 +78,7 @@ public actor GeniusProvider {
     }
 
     private func lookupSong(id: Int) async throws -> GeniusSongFull {
-        guard var components = URLComponents(string: "\(Self.baseURL)/songs/\(id)") else {
+        guard var components = URLComponents(string: "\(baseURL)/songs/\(id)") else {
             throw MusicContextError.invalidURL("genius song lookup")
         }
         components.queryItems = [
@@ -64,7 +89,7 @@ public actor GeniusProvider {
     }
 
     private func lookupArtist(id: Int) async throws -> GeniusArtistFull {
-        guard var components = URLComponents(string: "\(Self.baseURL)/artists/\(id)") else {
+        guard var components = URLComponents(string: "\(baseURL)/artists/\(id)") else {
             throw MusicContextError.invalidURL("genius artist lookup")
         }
         components.queryItems = [
@@ -84,7 +109,9 @@ public actor GeniusProvider {
         try await rateLimiter.wait()
 
         var request = URLRequest(url: url)
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        if let accessToken, apiMode == .authenticated {
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
 
         let data: Data
         let response: URLResponse

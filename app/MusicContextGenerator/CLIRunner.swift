@@ -92,8 +92,8 @@ enum CLIRunner {
                 logger.info("Genius: context fetched for \(context.track.title, privacy: .public)")
                 GeniusFormatter.printContext(context)
 
-            case .contextExtract(let csvPath, let skip):
-                try await runContextExtract(csvPath: csvPath, skip: skip)
+            case .contextExtract(let csvPath, let skip, let publicGenius):
+                try await runContextExtract(csvPath: csvPath, skip: skip, publicGenius: publicGenius)
 
             case .musicKitCharts(let limit, let storefronts):
                 try await runCharts(limit: limit, storefronts: storefronts)
@@ -141,7 +141,9 @@ enum CLIRunner {
             } catch let error as MusicContextError {
                 switch error {
                 case .rateLimited(let retryAfter):
-                    let delay = retryAfter ?? 5
+                    // Exponential backoff: 5s, 15s, 45s — or respect Retry-After if provided
+                    let baseDelay = 5 * Int(pow(3.0, Double(attempt - 1)))
+                    let delay = retryAfter ?? baseDelay
                     CLIHelpers.printErr("  \(label): rate limited, waiting \(delay)s (attempt \(attempt)/3)")
                     try await Task.sleep(for: .seconds(delay))
                 case .networkError:
@@ -170,7 +172,7 @@ enum CLIRunner {
         }
     }
 
-    private static func runContextExtract(csvPath: String, skip: Int) async throws {
+    private static func runContextExtract(csvPath: String, skip: Int, publicGenius: Bool = false) async throws {
         logger.info("Context extract: reading CSV from \(csvPath, privacy: .public)")
         let allTracks = try CLIHelpers.parseCSV(from: csvPath)
         guard !allTracks.isEmpty else {
@@ -189,19 +191,26 @@ enum CLIRunner {
         try await ensureAuthorized()
         let mkProvider = MusicKitProvider()
 
-        // Check Genius token once
-        let geniusToken = Bundle.main.infoDictionary?["GeniusAccessToken"] as? String
-        let hasGenius = geniusToken != nil && !geniusToken!.isEmpty && geniusToken! != "your_genius_access_token_here"
-        if !hasGenius {
-            CLIHelpers.printErr("Warning: GeniusAccessToken not configured — Genius data will be skipped.")
+        // Set up Genius provider
+        let geniusProvider: GeniusProvider?
+        if publicGenius {
+            CLIHelpers.printErr("Using Genius public API (no auth, IP-based rate limit)")
+            geniusProvider = GeniusProvider(mode: .publicAPI, requestsPerSecond: 1)
+        } else {
+            let geniusToken = Bundle.main.infoDictionary?["GeniusAccessToken"] as? String
+            let hasGenius = geniusToken != nil && !geniusToken!.isEmpty && geniusToken! != "your_genius_access_token_here"
+            if !hasGenius {
+                CLIHelpers.printErr("Warning: GeniusAccessToken not configured — Genius data will be skipped.")
+            }
+            geniusProvider = hasGenius ? GeniusProvider(accessToken: geniusToken!) : nil
         }
-        let geniusProvider = hasGenius ? GeniusProvider(accessToken: geniusToken!) : nil
 
         // Stats
         var mkResolved = 0
         var mkFailed = 0
         var geniusResolved = 0
         var geniusFailed = 0
+        var consecutiveGeniusFailures = 0
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
@@ -256,6 +265,13 @@ enum CLIRunner {
             // Fetch Genius data
             var geniusData: MusicContextData? = nil
             if let gProvider = geniusProvider {
+                // Cooldown after consecutive failures — back off progressively
+                if consecutiveGeniusFailures >= 3 {
+                    let cooldown = min(consecutiveGeniusFailures * 20, 300) // 60s, 80s, ... cap 5min
+                    CLIHelpers.printErr("  Genius: \(consecutiveGeniusFailures) consecutive failures, cooling down \(cooldown)s")
+                    try await Task.sleep(for: .seconds(cooldown))
+                }
+
                 do {
                     geniusData = try await retryOnTransient(label: "Genius") {
                         try await gProvider.fetchContext(
@@ -264,15 +280,24 @@ enum CLIRunner {
                     }
                     geniusResolved += 1
                     geniusStatus = "✓ genius"
+                    consecutiveGeniusFailures = 0
                 } catch let error as MusicContextError {
                     geniusFailed += 1
+                    consecutiveGeniusFailures += 1
                     geniusStatus = "✗ genius (\(error))"
                     CLIHelpers.printErr("  Genius error: \(error)")
                 } catch {
                     geniusFailed += 1
+                    consecutiveGeniusFailures += 1
                     geniusStatus = "✗ genius"
                     CLIHelpers.printErr("  Genius error: \(error)")
                 }
+            }
+
+            // Breather every 100 tracks to stay under rolling windows
+            if (index + 1) % 100 == 0 {
+                CLIHelpers.printErr("  Breather: pausing 5s (every 100 tracks)")
+                try await Task.sleep(for: .seconds(5))
             }
 
             // Time estimate

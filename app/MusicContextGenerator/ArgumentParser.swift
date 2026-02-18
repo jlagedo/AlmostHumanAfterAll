@@ -14,7 +14,7 @@ enum ProviderArguments {
     case musicKitID(catalogID: String)
     case musicKitPlaylist(name: String)
     case genius(artist: String, album: String, track: String)
-    case contextExtract(csvPath: String, skip: Int)
+    case contextExtract(csvPath: String, skip: Int, publicGenius: Bool)
     case musicKitCharts(limit: Int?, storefronts: [String]?)
 }
 
@@ -30,18 +30,28 @@ func parseArguments(_ args: [String]) throws -> ParsedArguments {
         throw ArgumentError.missingProviderFlag
     }
 
-    // Context extract mode: -ce <csv_path> [--skip N]
+    // Context extract mode: -ce <csv_path> [--skip N] [--public]
     if args[0] == "-ce" {
         guard !args[1].isEmpty else {
             throw ArgumentError.missingCSVPath
         }
         var skip = 0
-        if args.count >= 4 && args[2] == "--skip" {
-            skip = Int(args[3]) ?? 0
+        var publicGenius = false
+        var i = 2
+        while i < args.count {
+            if args[i] == "--skip", i + 1 < args.count {
+                skip = Int(args[i + 1]) ?? 0
+                i += 2
+            } else if args[i] == "--public" {
+                publicGenius = true
+                i += 1
+            } else {
+                i += 1
+            }
         }
         return ParsedArguments(
             providerType: nil,
-            arguments: .contextExtract(csvPath: args[1], skip: skip)
+            arguments: .contextExtract(csvPath: args[1], skip: skip, publicGenius: publicGenius)
         )
     }
 
@@ -205,7 +215,7 @@ Usage:
   MusicContextGenerator -p mk --playlist <Name>
   MusicContextGenerator -p mk --charts [--limit <N>] [--storefronts us,gb,jp]
   MusicContextGenerator -p g  <Artist> <Album> <Track>
-  MusicContextGenerator -ce <csv_file> [--skip N]
+  MusicContextGenerator -ce <csv_file> [--skip N] [--public]
 
 Providers:
   mb (MusicBrainz)  - Search by artist/album/track metadata
@@ -217,6 +227,7 @@ Batch:
                       Input: CSV with header "artist,track,album"
                       Output: JSONL to stdout, progress to stderr
                       --skip N to resume from track N (use: wc -l partial.jsonl)
+                      --public  use Genius public API (no auth, IP-based rate limit)
 
 Examples:
   MusicContextGenerator -p mb "Radiohead" "OK Computer" "Let Down" 299000
