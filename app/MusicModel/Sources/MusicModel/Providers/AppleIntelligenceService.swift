@@ -7,31 +7,25 @@ import FoundationModels
 public actor AppleIntelligenceService: CommentaryService {
     private var currentTask: Task<String, Error>?
 
+    private let systemInstructions = """
+        You are a world-class music journalist who writes short, descriptive song presentations.
+        1. ONLY use information from the provided sections.
+        2. DO NOT fabricate or alter names, titles, genres, dates, or claims.
+        3. DO NOT add any information not present in the provided sections.
+        """
+
+    private let taskPrompt = "Task Overview: As a world-class music journalist, present this song to the user in 3 sentences in a descriptive writing tone."
+
     public init() {}
 
-    public func getCommentary(for track: TrackInput, personality: Personality) async throws -> String {
+    public func getCommentary(for track: TrackInput) async throws -> String {
         try checkAvailability()
 
-        let prompt: String
-        if let context = track.context, !context.isEmpty {
-            prompt = """
-            "\(track.name)" by \(track.artist), from "\(track.album)" (\(track.genre)).
+        let prompt = (track.context ?? "") + "\n\n" + taskPrompt
 
-            \(context)
-
-            Ficino:
-            """
-        } else {
-            prompt = """
-            "\(track.name)" by \(track.artist), from "\(track.album)" (\(track.genre)).
-
-            React.
-            """
-        }
-
-        NSLog("[AppleIntelligence] Instructions:\n%@", personality.instructions)
+        NSLog("[AppleIntelligence] Instructions:\n%@", systemInstructions)
         NSLog("[AppleIntelligence] Prompt:\n%@", prompt)
-        return try await generate(prompt: prompt, personality: personality)
+        return try await generate(prompt: prompt)
     }
 
     public func cancelCurrent() {
@@ -42,10 +36,10 @@ public actor AppleIntelligenceService: CommentaryService {
 
     // MARK: - Private
 
-    private func generate(prompt: String, personality: Personality) async throws -> String {
+    private func generate(prompt: String) async throws -> String {
         let task = Task<String, Error> {
-            let session = LanguageModelSession(instructions: personality.instructions)
-            let response = try await session.respond(to: prompt)
+            let session = LanguageModelSession(instructions: systemInstructions)
+            let response = try await session.respond(to: prompt, options: GenerationOptions(temperature: 0.5))
             return response.content
         }
         currentTask = task

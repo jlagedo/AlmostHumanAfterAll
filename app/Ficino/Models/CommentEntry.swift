@@ -1,19 +1,16 @@
 import Foundation
 import AppKit
-import MusicModel
 
 struct CommentEntry: Identifiable {
     let id = UUID()
     let track: TrackInfo
     let comment: String
-    let personality: Personality
     let thumbnailData: Data?
     let timestamp: Date
 
-    init(track: TrackInfo, comment: String, personality: Personality, artwork: NSImage? = nil) {
+    init(track: TrackInfo, comment: String, artwork: NSImage? = nil) {
         self.track = track
         self.comment = comment
-        self.personality = personality
         self.thumbnailData = Self.makeThumbnail(from: artwork, maxSize: 48)
         self.timestamp = Date()
     }

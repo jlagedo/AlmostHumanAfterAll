@@ -50,7 +50,7 @@ public actor MusicKitProvider {
 
     /// Load all available relationships for a song.
     private func loadRelationships(for song: Song) async throws -> Song {
-        try await song.with(.albums, .artists, .composers, .genres, .musicVideos, .station, .audioVariants)
+        try await song.with(.albums, .artists, .composers, .genres, .musicVideos, .audioVariants)
     }
 
     /// Fetch full album details by ID (includes editorial notes, record labels, etc.)

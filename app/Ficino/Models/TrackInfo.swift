@@ -1,5 +1,4 @@
 import Foundation
-import MusicModel
 import FicinoCore
 
 struct TrackInfo: Identifiable, Equatable {
@@ -41,10 +40,6 @@ struct TrackInfo: Identifiable, Equatable {
         let minutes = Int(totalTime) / 60
         let seconds = Int(totalTime) % 60
         return String(format: "%d:%02d", minutes, seconds)
-    }
-
-    var asTrackInput: TrackInput {
-        TrackInput(name: name, artist: artist, album: album, genre: genre, durationString: durationString)
     }
 
     var asTrackRequest: TrackRequest {

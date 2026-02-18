@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import MusicKit
 import MusicModel
 import FicinoCore
 
@@ -23,8 +24,6 @@ final class AppState: ObservableObject {
     @Published var notificationDuration: TimeInterval {
         didSet { UserDefaults.standard.set(notificationDuration, forKey: "notificationDuration") }
     }
-
-    let personality: Personality = .ficino
 
     // MARK: - Services
     private let musicListener = MusicListener()
@@ -148,15 +147,17 @@ final class AppState: ObservableObject {
 
             NSLog("[AppState] Processing track via FicinoCore...")
 
+            // Kick off artwork fetch in parallel with commentary
+            async let artworkTask: NSImage? = fetchArtwork(name: track.name, artist: track.artist)
+
             do {
-                let result = try await core.process(track.asTrackRequest, personality: personality)
+                let commentary = try await core.process(track.asTrackRequest)
 
                 guard !Task.isCancelled else {
                     NSLog("[AppState] Task cancelled (track changed before response)")
                     return
                 }
 
-                let commentary = result.commentary
                 guard !commentary.isEmpty else {
                     isLoading = false
                     NSLog("[AppState] Empty comment from Apple Intelligence")
@@ -164,8 +165,8 @@ final class AppState: ObservableObject {
                     return
                 }
 
-                // Load artwork from URL if available
-                let artwork = await loadImage(from: result.artworkURL)
+                // Artwork may arrive before or after commentary
+                let artwork = await artworkTask
 
                 guard !Task.isCancelled else { return }
 
@@ -179,21 +180,18 @@ final class AppState: ObservableObject {
                 let entry = CommentEntry(
                     track: track,
                     comment: commentary,
-                    personality: personality,
                     artwork: artwork
                 )
                 history.insert(entry, at: 0)
                 if history.count > Self.historyCapacity {
                     history.removeLast()
                 }
-                NSLog("[AppState] History count: %d", history.count)
 
                 // Send floating notification
                 notificationService.duration = notificationDuration
                 notificationService.send(
                     track: track,
                     comment: commentary,
-                    personality: personality,
                     artwork: artwork
                 )
                 NSLog("[AppState] Floating notification sent (duration: %.0fs)", notificationDuration)
@@ -221,8 +219,15 @@ final class AppState: ObservableObject {
         return token
     }
 
-    private nonisolated func loadImage(from url: URL?) async -> NSImage? {
-        guard let url else { return nil }
+    private nonisolated func fetchArtwork(name: String, artist: String) async -> NSImage? {
+        var request = MusicCatalogSearchRequest(term: "\(artist) \(name)", types: [Song.self])
+        request.limit = 1
+        guard let song = try? await request.response().songs.first,
+              let url = song.artwork?.url(width: 600, height: 600) else { return nil }
+        return await loadImage(from: url)
+    }
+
+    private nonisolated func loadImage(from url: URL) async -> NSImage? {
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             return NSImage(data: data)

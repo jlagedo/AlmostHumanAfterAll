@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-import MusicModel
 
 @Observable
 @MainActor
@@ -16,7 +15,7 @@ final class NotificationService {
 
     var duration: TimeInterval = 30.0
 
-    func send(track: TrackInfo, comment: String, personality: Personality, artwork: NSImage?) {
+    func send(track: TrackInfo, comment: String, artwork: NSImage?) {
         NSLog("[Notification] Showing floating notification for: %@ (duration: %.0fs)", track.name, duration)
 
         let state = NotificationState()
@@ -25,7 +24,6 @@ final class NotificationService {
         let content = FloatingNotificationView(
             track: track,
             comment: comment,
-            personality: personality,
             artwork: artwork,
             state: state,
             onDismiss: { [weak self] in self?.dismiss() }
@@ -113,7 +111,6 @@ final class NotificationService {
 struct FloatingNotificationView: View {
     let track: TrackInfo
     let comment: String
-    let personality: Personality
     let artwork: NSImage?
     let state: NotificationState
     let onDismiss: () -> Void

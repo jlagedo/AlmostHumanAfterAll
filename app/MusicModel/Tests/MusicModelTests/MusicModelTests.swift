@@ -17,20 +17,6 @@ import Testing
     }
 }
 
-@Suite struct PersonalityTests {
-    @Test func ficinoProperties() {
-        let p = Personality.ficino
-        #expect(p.rawValue == "Ficino")
-        #expect(p.id == "Ficino")
-        #expect(p.icon == "book.fill")
-        #expect(!p.instructions.isEmpty)
-    }
-
-    @Test func allCasesContainsFicino() {
-        #expect(Personality.allCases.contains(.ficino))
-    }
-}
-
 @Suite struct AppleIntelligenceErrorTests {
     @Test func errorDescription() {
         let error = AppleIntelligenceError.unavailable("test message")
