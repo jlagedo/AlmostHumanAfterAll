@@ -30,6 +30,17 @@ enum CLIHelpers {
         return lines.joined(separator: "\n") + "\n"
     }
 
+    static func formatCSV(songs: [Song]) -> String {
+        var lines = ["artist,track,album"]
+        for song in songs {
+            let artist = csvEscape(song.artistName)
+            let title = csvEscape(song.title)
+            let album = csvEscape(song.albumTitle ?? "")
+            lines.append("\(artist),\(title),\(album)")
+        }
+        return lines.joined(separator: "\n") + "\n"
+    }
+
     /// Parse RFC 4180 CSV content into rows of (artist, track, album).
     /// Expects header row: `artist,track,album`. Skips header, handles quoted fields.
     static func parseCSV(from path: String) throws -> [(artist: String, track: String, album: String)] {
@@ -113,7 +124,7 @@ enum CLIHelpers {
         return rows
     }
 
-    private static func csvEscape(_ field: String) -> String {
+    static func csvEscape(_ field: String) -> String {
         if field.contains(",") || field.contains("\"") || field.contains("\n") {
             return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
         }

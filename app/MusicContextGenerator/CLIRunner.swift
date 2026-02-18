@@ -92,12 +92,15 @@ enum CLIRunner {
                 logger.info("Genius: context fetched for \(context.track.title, privacy: .public)")
                 GeniusFormatter.printContext(context)
 
-            case .contextExtract(let csvPath):
-                try await runContextExtract(csvPath: csvPath)
+            case .contextExtract(let csvPath, let skip):
+                try await runContextExtract(csvPath: csvPath, skip: skip)
+
+            case .musicKitCharts(let limit, let storefronts):
+                try await runCharts(limit: limit, storefronts: storefronts)
             }
 
             switch parsed.arguments {
-            case .musicKitPlaylist, .contextExtract:
+            case .musicKitPlaylist, .contextExtract, .musicKitCharts:
                 CLIHelpers.printErr("Done.")
             default:
                 print("Done.")
@@ -128,14 +131,59 @@ enum CLIRunner {
         }
     }
 
-    private static func runContextExtract(csvPath: String) async throws {
+    private static func retryOnTransient<T>(
+        label: String,
+        _ body: () async throws -> T
+    ) async throws -> T {
+        for attempt in 1...3 {
+            do {
+                return try await body()
+            } catch let error as MusicContextError {
+                switch error {
+                case .rateLimited(let retryAfter):
+                    let delay = retryAfter ?? 5
+                    CLIHelpers.printErr("  \(label): rate limited, waiting \(delay)s (attempt \(attempt)/3)")
+                    try await Task.sleep(for: .seconds(delay))
+                case .networkError:
+                    let delay = attempt * 2  // 2s, 4s
+                    CLIHelpers.printErr("  \(label): network error, retrying in \(delay)s (attempt \(attempt)/3)")
+                    try await Task.sleep(for: .seconds(delay))
+                default:
+                    throw error  // permanent failure — no retry
+                }
+            }
+        }
+        return try await body()  // final attempt, let it throw
+    }
+
+    private static func formatDuration(_ d: Duration) -> String {
+        let totalSeconds = Int(d.components.seconds)
+        let h = totalSeconds / 3600
+        let m = (totalSeconds % 3600) / 60
+        let s = totalSeconds % 60
+        if h > 0 {
+            return String(format: "%dh%02dm", h, m)
+        } else if m > 0 {
+            return String(format: "%dm%02ds", m, s)
+        } else {
+            return "\(s)s"
+        }
+    }
+
+    private static func runContextExtract(csvPath: String, skip: Int) async throws {
         logger.info("Context extract: reading CSV from \(csvPath, privacy: .public)")
-        let tracks = try CLIHelpers.parseCSV(from: csvPath)
-        guard !tracks.isEmpty else {
+        let allTracks = try CLIHelpers.parseCSV(from: csvPath)
+        guard !allTracks.isEmpty else {
             CLIHelpers.printErr("No tracks found in CSV.")
             return
         }
-        CLIHelpers.printErr("Loaded \(tracks.count) tracks from CSV.")
+
+        let tracks = skip > 0 ? Array(allTracks.dropFirst(skip)) : allTracks
+        if skip > 0 {
+            CLIHelpers.printErr("Loaded \(allTracks.count) tracks, skipping first \(skip), processing \(tracks.count).")
+        } else {
+            CLIHelpers.printErr("Loaded \(allTracks.count) tracks from CSV.")
+        }
 
         // Authorize MusicKit once
         try await ensureAuthorized()
@@ -149,19 +197,35 @@ enum CLIRunner {
         }
         let geniusProvider = hasGenius ? GeniusProvider(accessToken: geniusToken!) : nil
 
+        // Stats
+        var mkResolved = 0
+        var mkFailed = 0
+        var geniusResolved = 0
+        var geniusFailed = 0
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let startTime = ContinuousClock.now
+
         for (index, row) in tracks.enumerated() {
-            CLIHelpers.printErr("[\(index + 1)/\(tracks.count)] \(row.track) — \(row.artist)")
+            let trackNum = skip + index + 1
+            var mkStatus = ""
+            var geniusStatus = ""
 
             // Fetch MusicKit data
             var mkJSON: MusicKitJSON? = nil
             do {
-                let song = try await mkProvider.searchSong(artist: row.artist, track: row.track, album: row.album)
+                let song = try await retryOnTransient(label: "MusicKit search") {
+                    try await mkProvider.searchSong(artist: row.artist, track: row.track, album: row.album)
+                }
                 let songJSON = MusicKitSongJSON.from(song)
 
                 var albumJSON: MusicKitAlbumJSON? = nil
                 if let albumID = song.albums?.first?.id {
                     do {
-                        let album = try await mkProvider.fetchAlbum(id: albumID)
+                        let album = try await retryOnTransient(label: "MusicKit album") {
+                            try await mkProvider.fetchAlbum(id: albumID)
+                        }
                         albumJSON = MusicKitAlbumJSON.from(album)
                     } catch {
                         CLIHelpers.printErr("  MusicKit album error: \(error)")
@@ -171,7 +235,9 @@ enum CLIRunner {
                 var artistJSON: MusicKitArtistJSON? = nil
                 if let artistID = song.artists?.first?.id {
                     do {
-                        let artist = try await mkProvider.fetchArtist(id: artistID)
+                        let artist = try await retryOnTransient(label: "MusicKit artist") {
+                            try await mkProvider.fetchArtist(id: artistID)
+                        }
                         artistJSON = MusicKitArtistJSON.from(artist)
                     } catch {
                         CLIHelpers.printErr("  MusicKit artist error: \(error)")
@@ -179,7 +245,11 @@ enum CLIRunner {
                 }
 
                 mkJSON = MusicKitJSON(song: songJSON, album: albumJSON, artist: artistJSON)
+                mkResolved += 1
+                mkStatus = "✓ mk"
             } catch {
+                mkFailed += 1
+                mkStatus = "✗ mk"
                 CLIHelpers.printErr("  MusicKit error: \(error)")
             }
 
@@ -187,13 +257,33 @@ enum CLIRunner {
             var geniusData: MusicContextData? = nil
             if let gProvider = geniusProvider {
                 do {
-                    geniusData = try await gProvider.fetchContext(
-                        artist: row.artist, track: row.track, album: row.album
-                    )
+                    geniusData = try await retryOnTransient(label: "Genius") {
+                        try await gProvider.fetchContext(
+                            artist: row.artist, track: row.track, album: row.album
+                        )
+                    }
+                    geniusResolved += 1
+                    geniusStatus = "✓ genius"
+                } catch let error as MusicContextError {
+                    geniusFailed += 1
+                    geniusStatus = "✗ genius (\(error))"
+                    CLIHelpers.printErr("  Genius error: \(error)")
                 } catch {
+                    geniusFailed += 1
+                    geniusStatus = "✗ genius"
                     CLIHelpers.printErr("  Genius error: \(error)")
                 }
             }
+
+            // Time estimate
+            let elapsed = startTime.duration(to: .now)
+            let done = index + 1
+            let avgPerTrack = elapsed / done
+            let remaining = avgPerTrack * (tracks.count - done)
+            let eta = formatDuration(remaining)
+            let elapsedStr = formatDuration(elapsed)
+
+            CLIHelpers.printErr("[\(trackNum)/\(allTracks.count)] \(row.track) — \(row.artist) \(mkStatus) \(geniusStatus) (\(elapsedStr) elapsed, ~\(eta) remaining)")
 
             let entry = ContextExtractEntry(
                 artist: row.artist,
@@ -204,11 +294,111 @@ enum CLIRunner {
             )
 
             // Stream as JSONL — one compact JSON object per line
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.sortedKeys]
-            let jsonData = try encoder.encode(entry)
-            print(String(data: jsonData, encoding: .utf8)!)
+            do {
+                let jsonData = try encoder.encode(entry)
+                if let jsonString = String(data: jsonData, encoding: .utf8) {
+                    print(jsonString)
+                } else {
+                    CLIHelpers.printErr("  Warning: could not encode JSONL as UTF-8, skipping")
+                }
+            } catch {
+                CLIHelpers.printErr("  Warning: JSONL encoding failed: \(error), skipping")
+            }
         }
+
+        // Summary
+        let total = tracks.count
+        let mkPct = total > 0 ? mkResolved * 100 / total : 0
+        let geniusPct = total > 0 ? geniusResolved * 100 / total : 0
+        let totalElapsed = formatDuration(startTime.duration(to: .now))
+        CLIHelpers.printErr("Summary: \(total) processed in \(totalElapsed), \(mkResolved) MusicKit resolved (\(mkPct)%), \(geniusResolved) Genius resolved (\(geniusPct)%)")
+    }
+
+    private static func runCharts(limit: Int?, storefronts: [String]?) async throws {
+        let perChartLimit = limit ?? 200
+
+        try await ensureAuthorized()
+        let provider = MusicKitProvider()
+
+        // Use (lowercased artist + lowercased title) as dedup key
+        var seen = Set<String>()
+        var csvLines = ["artist,track,album"]
+
+        func addSong(artist: String, title: String, album: String) {
+            let key = "\(artist.lowercased())\t\(title.lowercased())"
+            if seen.insert(key).inserted {
+                csvLines.append("\(CLIHelpers.csvEscape(artist)),\(CLIHelpers.csvEscape(title)),\(CLIHelpers.csvEscape(album))")
+            }
+        }
+
+        if let storefronts {
+            // Multi-storefront mode via raw MusicDataRequest
+            for sf in storefronts {
+                CLIHelpers.printErr("[\(sf)] Fetching genres...")
+                let genres: [(id: String, name: String)]
+                do {
+                    genres = try await provider.fetchGenreIDs(storefront: sf)
+                } catch {
+                    CLIHelpers.printErr("[\(sf)] genre fetch error: \(error)")
+                    continue
+                }
+                CLIHelpers.printErr("[\(sf)] Found \(genres.count) genres.")
+
+                // Global chart (no genre filter)
+                do {
+                    let songs = try await provider.fetchChartSongs(storefront: sf, genreID: nil, limit: perChartLimit)
+                    let before = seen.count
+                    for song in songs {
+                        addSong(artist: song.attributes.artistName, title: song.attributes.name, album: song.attributes.albumName ?? "")
+                    }
+                    CLIHelpers.printErr("[\(sf)/global] \(songs.count) songs, \(seen.count - before) new (\(seen.count) unique total)")
+                } catch {
+                    CLIHelpers.printErr("[\(sf)/global] error: \(error)")
+                }
+
+                for genre in genres {
+                    do {
+                        let songs = try await provider.fetchChartSongs(storefront: sf, genreID: genre.id, limit: perChartLimit)
+                        let before = seen.count
+                        for song in songs {
+                            addSong(artist: song.attributes.artistName, title: song.attributes.name, album: song.attributes.albumName ?? "")
+                        }
+                        CLIHelpers.printErr("[\(sf)/\(genre.name)] \(songs.count) songs, \(seen.count - before) new (\(seen.count) unique total)")
+                    } catch {
+                        CLIHelpers.printErr("[\(sf)/\(genre.name)] error: \(error)")
+                    }
+                }
+            }
+        } else {
+            // Single storefront mode via MusicCatalogChartsRequest (user's home)
+            CLIHelpers.printErr("Fetching all genres...")
+            let genres = try await provider.fetchAllGenres()
+            let topLevel = genres.filter { $0.parent == nil }.count
+            CLIHelpers.printErr("Found \(genres.count) genres (\(topLevel) top-level, \(genres.count - topLevel) subgenres).")
+
+            func collectCharts(label: String, genre: Genre?) async {
+                do {
+                    let charts = try await provider.fetchChartSongs(genre: genre, limit: perChartLimit)
+                    for chart in charts {
+                        let before = seen.count
+                        for song in chart.songs {
+                            addSong(artist: song.artistName, title: song.title, album: song.albumTitle ?? "")
+                        }
+                        CLIHelpers.printErr("[\(label) — \(chart.title)] \(chart.songs.count) songs, \(seen.count - before) new (\(seen.count) unique total)")
+                    }
+                } catch {
+                    CLIHelpers.printErr("[\(label)] error: \(error)")
+                }
+            }
+
+            await collectCharts(label: "global", genre: nil)
+            for genre in genres {
+                await collectCharts(label: genre.name, genre: genre)
+            }
+        }
+
+        CLIHelpers.printErr("Total unique tracks: \(seen.count)")
+        print(csvLines.joined(separator: "\n") + "\n", terminator: "")
     }
 
     private static func ensureAuthorized() async throws {

@@ -98,6 +98,62 @@ public actor MusicKitProvider {
         return tracks
     }
 
+    /// Fetch top songs from all chart kinds, optionally filtered by genre.
+    /// Returns an array of (chartTitle, songs) tuples — one per chart kind that has results.
+    public func fetchChartSongs(genre: Genre?, limit: Int) async throws -> [(title: String, songs: MusicItemCollection<Song>)] {
+        var request = MusicCatalogChartsRequest(
+            genre: genre,
+            kinds: [.mostPlayed, .dailyGlobalTop, .cityTop],
+            types: [Song.self]
+        )
+        request.limit = limit
+
+        let response = try await request.response()
+
+        return response.songCharts.map { chart in
+            (title: chart.title, songs: chart.items)
+        }
+    }
+
+    /// Fetch all music genres from the catalog (top-level and subgenres).
+    public func fetchAllGenres() async throws -> [Genre] {
+        var request = MusicCatalogResourceRequest<Genre>()
+        request.limit = 200
+        let response = try await request.response()
+        return Array(response.items)
+    }
+
+    /// Fetch chart songs from a specific storefront using raw MusicDataRequest.
+    public func fetchChartSongs(storefront: String, genreID: String?, limit: Int) async throws -> [ChartSongData] {
+        var urlString = "https://api.music.apple.com/v1/catalog/\(storefront)/charts?types=songs&limit=\(limit)"
+        if let genreID {
+            urlString += "&genre=\(genreID)"
+        }
+
+        guard let url = URL(string: urlString) else {
+            throw MusicContextError.noResults(query: "invalid URL")
+        }
+
+        let request = MusicDataRequest(urlRequest: URLRequest(url: url))
+        let response = try await request.response()
+
+        let decoded = try JSONDecoder().decode(ChartResponse.self, from: response.data)
+        guard let songChart = decoded.results.songs?.first else {
+            return []
+        }
+        return songChart.data
+    }
+
+    /// Fetch all genre IDs from a specific storefront.
+    public func fetchGenreIDs(storefront: String) async throws -> [(id: String, name: String)] {
+        let url = URL(string: "https://api.music.apple.com/v1/catalog/\(storefront)/genres")!
+        let request = MusicDataRequest(urlRequest: URLRequest(url: url))
+        let response = try await request.response()
+
+        let decoded = try JSONDecoder().decode(GenreListResponse.self, from: response.data)
+        return decoded.data.map { (id: $0.id, name: $0.attributes.name) }
+    }
+
     // MARK: - Private
 
     private func bestPlaylistMatch(from playlists: MusicItemCollection<Playlist>, name: String) -> Playlist? {

@@ -14,7 +14,8 @@ enum ProviderArguments {
     case musicKitID(catalogID: String)
     case musicKitPlaylist(name: String)
     case genius(artist: String, album: String, track: String)
-    case contextExtract(csvPath: String)
+    case contextExtract(csvPath: String, skip: Int)
+    case musicKitCharts(limit: Int?, storefronts: [String]?)
 }
 
 /// Result of parsing command-line arguments
@@ -29,14 +30,18 @@ func parseArguments(_ args: [String]) throws -> ParsedArguments {
         throw ArgumentError.missingProviderFlag
     }
 
-    // Context extract mode: -ce <csv_path>
+    // Context extract mode: -ce <csv_path> [--skip N]
     if args[0] == "-ce" {
         guard !args[1].isEmpty else {
             throw ArgumentError.missingCSVPath
         }
+        var skip = 0
+        if args.count >= 4 && args[2] == "--skip" {
+            skip = Int(args[3]) ?? 0
+        }
         return ParsedArguments(
             providerType: nil,
-            arguments: .contextExtract(csvPath: args[1])
+            arguments: .contextExtract(csvPath: args[1], skip: skip)
         )
     }
 
@@ -105,6 +110,27 @@ private func parseMusicKitArgs(_ args: [String], providerType: ProviderType) thr
         )
     }
 
+    if args[0] == "--charts" {
+        var limit: Int? = nil
+        var storefronts: [String]? = nil
+        var i = 1
+        while i < args.count {
+            if args[i] == "--limit", i + 1 < args.count {
+                limit = Int(args[i + 1])
+                i += 2
+            } else if args[i] == "--storefronts", i + 1 < args.count {
+                storefronts = args[i + 1].split(separator: ",").map(String.init)
+                i += 2
+            } else {
+                i += 1
+            }
+        }
+        return ParsedArguments(
+            providerType: providerType,
+            arguments: .musicKitCharts(limit: limit, storefronts: storefronts)
+        )
+    }
+
     guard args.count >= 3 else {
         throw ArgumentError.insufficientMusicKitArgs
     }
@@ -160,7 +186,7 @@ enum ArgumentError: Error, CustomStringConvertible {
         case .insufficientMusicBrainzArgs(let provided):
             return "MusicBrainz mode requires 3-4 arguments (Artist, Album, Track, [DurationMs]), got \(provided)\n" + usageMessage
         case .insufficientMusicKitArgs:
-            return "MusicKit mode requires 3 arguments (Artist, Album, Track), --id <CatalogID>, or --playlist <Name>\n" + usageMessage
+            return "MusicKit mode requires 3 arguments (Artist, Album, Track), --id <CatalogID>, --playlist <Name>, or --charts\n" + usageMessage
         case .insufficientGeniusArgs(let provided):
             return "Genius mode requires 3 arguments (Artist, Album, Track), got \(provided)\n" + usageMessage
         case .emptyArgument:
@@ -177,8 +203,9 @@ Usage:
   MusicContextGenerator -p mk <Artist> <Album> <Track>
   MusicContextGenerator -p mk --id <CatalogID>
   MusicContextGenerator -p mk --playlist <Name>
+  MusicContextGenerator -p mk --charts [--limit <N>] [--storefronts us,gb,jp]
   MusicContextGenerator -p g  <Artist> <Album> <Track>
-  MusicContextGenerator -ce <csv_file>
+  MusicContextGenerator -ce <csv_file> [--skip N]
 
 Providers:
   mb (MusicBrainz)  - Search by artist/album/track metadata
@@ -188,7 +215,8 @@ Providers:
 Batch:
   -ce               - Extract MusicKit + Genius context for each track in a CSV file
                       Input: CSV with header "artist,track,album"
-                      Output: JSON array to stdout, progress to stderr
+                      Output: JSONL to stdout, progress to stderr
+                      --skip N to resume from track N (use: wc -l partial.jsonl)
 
 Examples:
   MusicContextGenerator -p mb "Radiohead" "OK Computer" "Let Down" 299000
@@ -196,6 +224,10 @@ Examples:
   MusicContextGenerator -p mk --id 1440933460
   MusicContextGenerator -p mk --playlist "Top 100: Global"
   MusicContextGenerator -p mk --playlist "Top 100: Global" > top100.csv
+  MusicContextGenerator -p mk --charts
+  MusicContextGenerator -p mk --charts --limit 100
+  MusicContextGenerator -p mk --charts --storefronts us,gb,jp
   MusicContextGenerator -p g  "Radiohead" "OK Computer" "Let Down"
-  MusicContextGenerator -ce ml/data/mk_top100.csv > context.json
+  MusicContextGenerator -ce ml/data/mk_top100.csv > context.jsonl
+  MusicContextGenerator -ce ml/data/mk_top100.csv --skip 5000 >> context.jsonl
 """
