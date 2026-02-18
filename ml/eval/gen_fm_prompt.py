@@ -10,6 +10,7 @@ Output: data/eval_output/prompts_top100.jsonl — one JSON object per line with
   { "prompt" }
 """
 
+import argparse
 import json
 import re
 from pathlib import Path
@@ -87,88 +88,131 @@ FALLBACK_EXAMPLE = (
 )
 
 
+JUNK_PHRASES = [
+    "Click here to learn how to translate",
+    "Spotify is a music",
+    "OVO Sound Radio",
+    "Every Friday, Spotify compiles",
+]
+
+
 def strip_html(html: str) -> str:
     return re.sub(r"<[^>]+>", "", html)
 
 
-def build_musickit_context(mk: dict) -> str | None:
-    parts: list[str] = []
+def strip_urls(text: str) -> str:
+    return re.sub(r"https?://\S+", "", text).strip()
 
-    song = mk.get("song", {})
 
-    # Genres — filter to primary (same logic as Swift: first non-"Music" genre)
-    genres = song.get("genres", [])
-    primary = [g for g in genres if g != "Music"]
-    if primary:
-        parts.append(f"Genres: {', '.join(primary)}")
+CTA_PHRASES = [
+    "Pre-add",
+    "pre-add",
+    "Pre-save",
+    "pre-save",
+    "Listen now",
+    "listen now",
+    "Stream now",
+    "stream now",
+]
 
-    # Release date
+
+def is_junk(text: str) -> bool:
+    return any(phrase in text for phrase in JUNK_PHRASES)
+
+
+def is_cta(text: str) -> bool:
+    return any(phrase in text for phrase in CTA_PHRASES)
+
+
+def build_prompt(entry: dict) -> dict | None:
+    mk = entry.get("musickit") or {}
+    genius = entry.get("genius") or {}
+    song = mk.get("song") or {}
+    album = mk.get("album") or {}
+    artist_mk = mk.get("artist") or {}
+    genius_track = genius.get("track") or {}
+    genius_artist = genius.get("artist") or {}
+    genius_trivia = genius.get("trivia") or {}
+
+    # Filter: require TrackDescription (Tiers A/B/C only — skip D and E)
+    wiki_raw = genius_track.get("wikiSummary")
+    if not wiki_raw or is_junk(wiki_raw):
+        return None
+
+    sections: list[str] = []
+
+    # Song — identity + basic metadata
+    song_parts = [entry["track"], entry["artist"], entry["album"]]
+    genres = [g for g in song.get("genres", []) if g != "Music"]
+    if genres:
+        song_parts.append(f"Genre: {', '.join(genres)}")
     release = song.get("releaseDate")
     if release:
-        parts.append(f"Release date: {release[:10]}")
+        song_parts.append(f"Released: {release[:10]}")
+    sections.append(f"[Song]\n" + "\n".join(song_parts) + "\n[End Song]")
 
-    # Editorial notes (prefer album-level standard/short, like MusicKit Song)
-    album = mk.get("album", {})
-    editorial_short = album.get("editorialNotesShort")
-    if editorial_short:
-        parts.append(f"Editorial notes: {strip_html(editorial_short)}")
+    # Track description — position 2 (primacy); model's primary source
+    wiki = genius_track.get("wikiSummary")
+    if wiki and not is_junk(wiki):
+        sections.append(f"[TrackDescription]\n{strip_urls(wiki)}\n[End TrackDescription]")
 
-    return "\n".join(parts) if parts else None
+    # Artist bio — middle position (lowest attention on 3B)
+    bio = genius_artist.get("bio")
+    if bio and not is_junk(bio):
+        sections.append(f"[ArtistBio]\n{strip_urls(bio)}\n[End ArtistBio]")
 
+    # Editorial — drop blocks with marketing CTAs
+    album_editorial = album.get("editorialNotesShort")
+    if album_editorial and not is_cta(strip_html(album_editorial)):
+        sections.append(f"[Album Editorial]\n{strip_html(album_editorial)}\n[End Album Editorial]")
 
-def build_genius_context(genius: dict) -> str | None:
-    parts: list[str] = []
-    trivia = genius.get("trivia", {})
-    track = genius.get("track", {})
+    artist_editorial = artist_mk.get("editorialNotesShort")
+    if artist_editorial and not is_cta(strip_html(artist_editorial)):
+        sections.append(f"[Artist Editorial]\n{strip_html(artist_editorial)}\n[End Artist Editorial]")
 
-    samples = trivia.get("samples", [])
+    # Samples
+    samples = genius_trivia.get("samples", [])
     if samples:
-        parts.append(f"Samples: {'; '.join(samples)}")
+        sections.append(f"[Samples Used]\n{'; '.join(samples)}\n[End Samples Used]")
 
-    wiki = track.get("wikiSummary")
-    if wiki:
-        truncated = wiki[:250] + "..." if len(wiki) > 250 else wiki
-        parts.append(f"Song description: {truncated}")
-
-    return "\n".join(parts) if parts else None
+    sampled_by = genius_trivia.get("sampledBy", [])
+    if sampled_by:
+        sections.append(f"[Sampled By]\n{'; '.join(sampled_by)}\n[End Sampled By]")
 
 
-def build_prompt(entry: dict) -> dict:
-    mk = entry.get("musickit", {})
-
-    # Genre: use first primary genre from MusicKit song data
-    song_genres = mk.get("song", {}).get("genres", [])
-    genre = next((g for g in song_genres if g != "Music"), "Unknown")
-
-    # Assemble context (MusicKit + Genius)
-    mk_ctx = build_musickit_context(mk)
-    g_ctx = build_genius_context(entry.get("genius", {}))
-
-    # Check for rich signals beyond just genre/date
-    has_editorial = bool(mk.get("album", {}).get("editorialNotesShort"))
-    has_genius = g_ctx is not None
-    if not has_editorial and not has_genius:
-        return None  # Only genre + release date — model will hallucinate
-
-    if mk_ctx and g_ctx:
-        context = mk_ctx + "\n" + g_ctx
-    elif mk_ctx:
-        context = mk_ctx
-    else:
-        context = g_ctx
-
-    # Final prompt — task-first, genre anchor, no track/artist/album
-    task = "Write a short liner note using only the facts below."
-    prompt = f'{task}\n\nGenre: {genre}\n\n[Context]\n{context}\n[End of Context]'
-
-    return {"prompt": prompt}
+    return {"prompt": "\n\n".join(sections)}
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Generate FM-format prompts from context JSONL.")
+    parser.add_argument("-l", type=int, default=None, help="Limit number of output prompts")
+    parser.add_argument("-v", "--version", type=str, default=None,
+                        help="Version tag (e.g. v17) — reads prompt template from prompts/fm_instruction_<version>.json")
+    args = parser.parse_args()
+
+    # Load prompt template from instruction file if version specified
+    task_prompt = None
+    if args.version:
+        instruction_path = DATA_DIR.parent / "prompts" / f"fm_instruction_{args.version}.json"
+        if not instruction_path.exists():
+            print(f"Error: {instruction_path} not found")
+            return
+        instruction = json.loads(instruction_path.read_text())
+        task_prompt = instruction.get("prompt")
+        if task_prompt:
+            print(f"Using prompt template from {instruction_path.name}")
+
     entries = [json.loads(line) for line in INPUT.read_text().split("\n") if line.strip()]
     results = [build_prompt(e) for e in entries]
     skipped = results.count(None)
     results = [r for r in results if r is not None]
+
+    if task_prompt:
+        for r in results:
+            r["prompt"] += "\n\n" + task_prompt
+
+    if args.l is not None:
+        results = results[:args.l]
 
     with OUTPUT.open("w") as f:
         for r in results:

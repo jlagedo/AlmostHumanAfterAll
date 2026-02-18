@@ -19,33 +19,47 @@ struct FMPromptRunnerApp: App {
     }
 
     init() {
+        // Skip CLI logic when launched by Xcode for #Playground execution
+        guard ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PLAYGROUNDS"] == nil else {
+            return
+        }
+
         var args = Array(CommandLine.arguments.dropFirst())
 
-        // Parse -limit flag
+        // Parse -l (limit) flag
         var limit: Int?
-        if let idx = args.firstIndex(of: "-limit"), idx + 1 < args.count {
+        if let idx = args.firstIndex(of: "-l"), idx + 1 < args.count {
             if let n = Int(args[idx + 1]), n > 0 {
                 limit = n
             } else {
-                print("Error: -limit requires a positive integer")
+                print("Error: -l requires a positive integer")
                 exit(1)
             }
             args.removeSubrange(idx...idx + 1)
         }
 
-        // Always runs dual-stage pipeline (extract facts → write liner note)
+        // Parse -t (temperature) flag
+        var temperature: Double = 0.5
+        if let idx = args.firstIndex(of: "-t"), idx + 1 < args.count {
+            if let t = Double(args[idx + 1]), t >= 0 {
+                temperature = t
+            } else {
+                print("Error: -t requires a non-negative number")
+                exit(1)
+            }
+            args.removeSubrange(idx...idx + 1)
+        }
 
         guard args.count >= 3 else {
             print("""
-            Usage: FMPromptRunner <prompts.jsonl> <instructions.json> <output.jsonl> [-limit N]
+            Usage: FMPromptRunner <prompts.jsonl> <instructions.json> <output.jsonl> [-l N] [-t TEMP]
 
             Reads prompts JSONL, generates commentary via Apple Intelligence, writes output JSONL.
-            Always runs dual-stage pipeline: extract facts → write liner note.
             """)
             exit(1)
         }
         Task {
-            await run(args, limit: limit)
+            await run(args, limit: limit, temperature: temperature)
             exit(0)
         }
     }

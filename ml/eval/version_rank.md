@@ -5,6 +5,7 @@
 | v14 | 02-16 | 2.7 | 2.5 | 1.2 | 1.5 | 2.7 | **10.6** | 26P 8H 16D 7E 2C 7M | 94 |
 | v15 | 02-17 | 2.5 | 2.5 | 1.4 | 2.3 | 2.6 | **11.3** | 5P 6H 4E 2C 11M | 92 |
 | v16 | 02-17 | 2.5 | 2.5 | 1.8 | 2.6 | 2.4 | **11.7** | 8P 6H 1D 5E 2C 8M | 92 |
+| v17 | 02-17 | 2.8 | 2.8 | 1.9 | 2.7 | 2.9 | **13.0** | 8P 7H 1E 2M | 81 |
 <!-- /summary -->
 
 ---
@@ -84,3 +85,29 @@ Faith 2.5 · Ground 2.5 · Tone 1.8 · Conc 2.6 · Acc 2.4 · **11.7/15**
 | 33 | 14.3 | Alternative | Uses editorial (Joe Keery, alt-pop breakthrough, actor-rock star trope), song description (End of Beginning, personal transformation, reflection, past experiences). Genuinely sounds like a liner note. Compact and faithful. |
 | 90 | 14.0 | Hip-Hop/Rap | Uses editorial (Future's album, six more tracks, Spatial Audio). Compact and faithful. |
 | 85 | 14.0 | Country | Uses song description (I Had Some Help, first collaboration, Post Malone, Morgan Wallen, Stagecoach 2024, April 28, Billboard #1 Song of Summer 2024). Compact and faithful. |
+
+---
+
+## v17 — 2026-02-17
+
+Faith 2.8 · Ground 2.8 · Tone 1.9 · Conc 2.7 · Acc 2.9 · **13.0/15**
+
+**Flags:** 8 preamble · 7 hallucination · 1 echo · 2 misattribution
+
+**Bottom 5**
+| # | Score | Genre | Issue |
+|---|-------|-------|-------|
+| 14 | 8.3 | Hip-Hop/Rap | Misattributed: calls 'Body' a track by Don Toliver, but TrackDescription says it's 'the second track from OCTANE transitioning from E85'. Also hallucinated 'sixth album' — ArtistBio says OCTANE is his fifth album. Confused identity. |
+| 19 | 8.3 | J-Pop | Opens with 'Here is…' (preamble). Hallucinated 'Jane Doe' as a person — TrackDescription says 'JANE DOE' is a song title, not a vocalist. Misattributed Utada Hikaru as 'Jane Doe'. Confused identity. |
+| 25 | 9.0 | R&B/Soul, Pop | Opens with 'Sure! Here is…' (preamble). Otherwise accurate: uses TrackDescription (longing to be loved, released December 9, 2022, re-released August 25, 2023). Penalised for meta-framing. |
+| 48 | 9.0 | Hip-Hop/Rap | Opens with 'Sure! Here is…' (preamble). Otherwise accurate: uses TrackDescription (twisted relationships, drug addictions, Tems sampled from 'Higher'). Penalised for meta-framing. |
+| 61 | 9.0 | Hip-Hop/Rap | Opens with 'Sure! Here is…' (preamble). Otherwise accurate: uses TrackDescription (extravagant lifestyle, treacherous background, wealth/firearms/ammunition). Penalised for meta-framing. |
+
+**Top 5**
+| # | Score | Genre | Note |
+|---|-------|-------|------|
+| 81 | 14.0 | Alternative | Uses TrackDescription (debut single, posted on SoundCloud, went viral, four remixes, two music videos) and ArtistBio (Billie Eilish). Accurate, grounded, natural. |
+| 80 | 14.0 | Hip-Hop/Rap | Uses TrackDescription (break-out single, peaked #2, nominated for two Grammys, samples 'Fallin' in Love' and 'That's My Nigga') and ArtistBio (Drake). Accurate, grounded, natural. |
+| 79 | 14.0 | Pop | Uses TrackDescription (conflicted late-night confession, wanting someone who belongs to someone else, addictive/fleeting, music video with Quen Blackwell/Milo Manheim) and ArtistBio (sombr). Accurate, grounded, natural. |
+| 77 | 14.0 | Hip-Hop/Rap | Uses TrackDescription (emotional tension, return to Fayetteville at 29, Future's hook, 'Fuck do you know 'bout Jermaine?', builds on 'Safety') and ArtistBio (J. Cole). Accurate, grounded, natural. |
+| 76 | 14.0 | Country | Uses TrackDescription (first collaboration, performed at Stagecoach 2024, Billboard #1 Song of Summer 2024, relationship struggles) and ArtistBio (Post Malone). Accurate, grounded, natural. |
