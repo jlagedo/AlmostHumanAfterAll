@@ -28,7 +28,7 @@ from rich.table import Table
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from lib.log import log_phase, log_info, log_ok, log_warn, log_err, log_file, console, err_console
+from lib.log import log_phase, log_info, log_ok, log_warn, log_err, log_file, log_duration, fmt_duration, console, err_console
 
 DATA_DIR = ROOT / "data" / "eval"
 RANK_FILE = DATA_DIR / "version_rank.md"
@@ -181,7 +181,7 @@ def call_judge(client: anthropic.Anthropic, user: str) -> tuple[list[dict], dict
     total_len = len(SYSTEM_PROMPT) + len(user)
     log_info(f"System: {len(SYSTEM_PROMPT):,} chars · User: {len(user):,} chars (~{total_len // 4:,} tokens)")
 
-    t0 = time.time()
+    t0 = time.perf_counter()
     with console.status("[bold cyan]Waiting for response…"):
         try:
             response = client.messages.parse(
@@ -193,15 +193,15 @@ def call_judge(client: anthropic.Anthropic, user: str) -> tuple[list[dict], dict
                 output_format=ScoreResponse,
             )
         except anthropic.APIError as e:
-            elapsed = time.time() - t0
-            log_err(f"API error after {elapsed:.1f}s: {e}")
+            elapsed = time.perf_counter() - t0
+            log_err(f"API error after {fmt_duration(elapsed)}: {e}")
             sys.exit(1)
         except pydantic.ValidationError as e:
-            elapsed = time.time() - t0
-            log_err(f"Response parse failed after {elapsed:.1f}s — output likely truncated (raise max_tokens)")
+            elapsed = time.perf_counter() - t0
+            log_err(f"Response parse failed after {fmt_duration(elapsed)} — output likely truncated (raise max_tokens)")
             log_err(str(e.errors()[0]["type"]))
             sys.exit(1)
-    elapsed = time.time() - t0
+    elapsed = time.perf_counter() - t0
 
     parsed = response.parsed_output
     if not parsed or not parsed.scores:
@@ -549,6 +549,7 @@ def print_results(version: str, summary: dict, entries: list[dict]) -> None:
 
 
 def main() -> None:
+    run_start = time.perf_counter()
     parser = argparse.ArgumentParser(description="Rank AFM output quality using LLM judge")
     parser.add_argument("-l", "--limit", type=int, default=None, help="max entries to evaluate")
     parser.add_argument("-p", "--passes", type=int, default=1, help="number of judge passes (default: 1)")
@@ -678,6 +679,7 @@ def main() -> None:
         f"  [dim]Tokens: {total_usage['input']:,} in + {total_usage['output']:,} out "
         f"= {total_tokens:,} total ({passes} pass{'es' if passes > 1 else ''})[/]"
     )
+    log_duration(time.perf_counter() - run_start, "Total judging")
 
 
 if __name__ == "__main__":

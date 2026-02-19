@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from lib.log import log_phase, log_ok, log_warn, log_file
+from lib.log import log_phase, log_ok, log_warn, log_info, log_file, log_timer
 
 
 def main():
@@ -31,33 +31,35 @@ def main():
 
     log_phase("Joining prompts with responses")
 
-    # Index prompts by id
-    prompts = {}
-    for line in args.prompts.read_text().split("\n"):
-        if not line.strip():
-            continue
-        entry = json.loads(line)
-        prompts[entry["id"]] = entry["prompt"]
-
-    joined = 0
-    missing = 0
-    with output.open("w") as f:
-        for line in args.responses.read_text().split("\n"):
+    with log_timer("Join"):
+        # Index prompts by id
+        prompts = {}
+        for line in args.prompts.read_text().split("\n"):
             if not line.strip():
                 continue
             entry = json.loads(line)
-            rid = entry["id"]
-            if rid not in prompts:
-                missing += 1
-                continue
-            row = {
-                "id": rid,
-                "prompt": prompts[rid],
-                "response": entry["response"],
-                "stop_reason": entry.get("stop_reason", ""),
-            }
-            f.write(json.dumps(row, ensure_ascii=False) + "\n")
-            joined += 1
+            prompts[entry["id"]] = entry["prompt"]
+        log_info(f"Indexed {len(prompts)} prompts from {args.prompts.name}")
+
+        joined = 0
+        missing = 0
+        with output.open("w") as f:
+            for line in args.responses.read_text().split("\n"):
+                if not line.strip():
+                    continue
+                entry = json.loads(line)
+                rid = entry["id"]
+                if rid not in prompts:
+                    missing += 1
+                    continue
+                row = {
+                    "id": rid,
+                    "prompt": prompts[rid],
+                    "response": entry["response"],
+                    "stop_reason": entry.get("stop_reason", ""),
+                }
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+                joined += 1
 
     log_ok(f"Joined {joined} rows")
     log_file(output)

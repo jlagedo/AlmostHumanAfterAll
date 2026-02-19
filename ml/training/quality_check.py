@@ -9,12 +9,13 @@ import argparse
 import json
 import re
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from lib.log import log_phase, log_ok, log_info, log_file
+from lib.log import log_phase, log_ok, log_info, log_file, log_duration, log_warn
 
 import sentencepiece as spm
 
@@ -115,14 +116,23 @@ def main():
 
     log_phase("Running quality checks")
 
+    lines = [l for l in args.input.read_text().split("\n") if l.strip()]
+    total = len(lines)
+    log_info(f"{total} entries to check")
+
+    log_phase("Loading tokenizer")
+    t0 = time.perf_counter()
+    get_tokenizer()
+    log_duration(time.perf_counter() - t0, "Tokenizer loaded")
+
+    log_phase("Checking entries")
+    t0 = time.perf_counter()
     passed = 0
     rejected = 0
     reasons: dict[str, int] = {}
 
     with output.open("w") as f:
-        for line in args.input.read_text().split("\n"):
-            if not line.strip():
-                continue
+        for i, line in enumerate(lines, 1):
             entry = json.loads(line)
             entry["prompt"] = clean_text(entry["prompt"])
             entry["response"] = clean_text(entry["response"])
@@ -133,8 +143,12 @@ def main():
             else:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
                 passed += 1
+            if i % 100 == 0:
+                log_info(f"Checked {i}/{total} entries…")
 
+    elapsed = time.perf_counter() - t0
     log_ok(f"Passed: {passed}  Rejected: {rejected}")
+    log_duration(elapsed, f"Checked {total} entries")
     log_file(output)
     if reasons:
         for r, count in sorted(reasons.items(), key=lambda x: -x[1]):

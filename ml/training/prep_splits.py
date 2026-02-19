@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from lib.log import log_phase, log_ok, log_file
+from lib.log import log_phase, log_ok, log_info, log_file, log_timer
 
 DATA_DIR = ROOT / "data"
 
@@ -57,28 +57,30 @@ def main():
 
     log_phase("Preparing training splits")
 
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    out_dir = args.output_dir or DATA_DIR / "training" / ts
-    out_dir.mkdir(parents=True, exist_ok=True)
+    with log_timer("Split preparation"):
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        out_dir = args.output_dir or DATA_DIR / "training" / ts
+        out_dir.mkdir(parents=True, exist_ok=True)
 
-    entries = []
-    for line in args.input.read_text().split("\n"):
-        if not line.strip():
-            continue
-        entries.append(json.loads(line))
+        entries = []
+        for line in args.input.read_text().split("\n"):
+            if not line.strip():
+                continue
+            entries.append(json.loads(line))
+        log_info(f"Loaded {len(entries)} entries from {args.input.name}")
 
-    random.seed(args.seed)
-    random.shuffle(entries)
+        random.seed(args.seed)
+        random.shuffle(entries)
 
-    split = int(len(entries) * (1 - args.eval_ratio))
-    train_entries = entries[:split]
-    eval_entries = entries[split:]
+        split = int(len(entries) * (1 - args.eval_ratio))
+        train_entries = entries[:split]
+        eval_entries = entries[split:]
 
-    for name, subset in [("train.jsonl", train_entries), ("eval.jsonl", eval_entries)]:
-        path = out_dir / name
-        with path.open("w") as f:
-            for entry in subset:
-                f.write(json.dumps(format_row(entry), ensure_ascii=False) + "\n")
+        for name, subset in [("train.jsonl", train_entries), ("eval.jsonl", eval_entries)]:
+            path = out_dir / name
+            with path.open("w") as f:
+                for entry in subset:
+                    f.write(json.dumps(format_row(entry), ensure_ascii=False) + "\n")
 
     log_ok(f"Train: {len(train_entries)}  Eval: {len(eval_entries)}")
     log_file(out_dir)
