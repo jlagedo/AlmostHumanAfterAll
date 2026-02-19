@@ -15,22 +15,22 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from lib.log import log_phase, log_info, log_ok, log_err
+
 EVAL_DIR = ROOT / "eval"
 DATA_DIR = ROOT / "data" / "eval"
 PROMPTS_DIR = ROOT / "prompts"
 
 
-def log(msg: str) -> None:
-    print(f"\n\033[1;36m▸ {msg}\033[0m")
-
-
 def run(cmd: list[str], label: str) -> None:
-    log(label)
-    print(f"  \033[2m$ {' '.join(cmd)}\033[0m")
+    log_phase(label)
+    log_info(f"$ {' '.join(cmd)}")
     result = subprocess.run(cmd)
     if result.returncode != 0:
-        print(f"\n\033[1;31m✗ {label} failed (exit {result.returncode})\033[0m")
+        log_err(f"{label} failed (exit {result.returncode})")
         sys.exit(result.returncode)
 
 
@@ -56,7 +56,7 @@ def main():
     version = args.version
     instruction = PROMPTS_DIR / f"fm_instruction_{version}.json"
     if not instruction.exists():
-        print(f"\033[1;31m✗ Instruction file not found: {instruction}\033[0m")
+        log_err(f"Instruction file not found: {instruction}")
         sys.exit(1)
 
     # Step 1: Build prompts (unless --prompts or --output given)
@@ -95,13 +95,13 @@ def main():
         # run_model.sh generates its own timestamped filename, find the latest
         outputs = sorted(DATA_DIR.glob(f"output_{version}_*.jsonl"))
         if not outputs:
-            print(f"\033[1;31m✗ No output file found for {version}\033[0m")
+            log_err(f"No output file found for {version}")
             sys.exit(1)
         output_file = outputs[-1]
 
     # Step 3: Judge
     if not output_file.exists():
-        print(f"\033[1;31m✗ Output file not found: {output_file}\033[0m")
+        log_err(f"Output file not found: {output_file}")
         sys.exit(1)
 
     cmd = [
@@ -114,7 +114,7 @@ def main():
         cmd += ["-p", str(args.passes)]
     run(cmd, f"Judging output ({version})")
 
-    log("Done")
+    log_phase("Done")
 
 
 if __name__ == "__main__":

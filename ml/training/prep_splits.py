@@ -15,10 +15,16 @@ context it will be used.
 import argparse
 import json
 import random
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-DATA_DIR = Path(__file__).parent.parent / "data"
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from lib.log import log_phase, log_ok, log_file
+
+DATA_DIR = ROOT / "data"
 
 SYSTEM_PROMPT = (
     "You are a world-class music journalist who writes short, descriptive song presentations.\n"
@@ -49,6 +55,8 @@ def main():
                         help="Output directory (default: ml/data/training/<timestamp>)")
     args = parser.parse_args()
 
+    log_phase("Preparing training splits")
+
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     out_dir = args.output_dir or DATA_DIR / "training" / ts
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -72,7 +80,8 @@ def main():
             for entry in subset:
                 f.write(json.dumps(format_row(entry), ensure_ascii=False) + "\n")
 
-    print(f"Train: {len(train_entries)}  Eval: {len(eval_entries)}  → {out_dir}")
+    log_ok(f"Train: {len(train_entries)}  Eval: {len(eval_entries)}")
+    log_file(out_dir)
 
 
 if __name__ == "__main__":

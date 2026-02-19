@@ -10,7 +10,13 @@ Output format per line:
 
 import argparse
 import json
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from lib.log import log_phase, log_ok, log_warn, log_file
 
 
 def main():
@@ -22,6 +28,8 @@ def main():
     args = parser.parse_args()
 
     output = args.output or args.responses.parent / f"joined_{args.responses.stem}.jsonl"
+
+    log_phase("Joining prompts with responses")
 
     # Index prompts by id
     prompts = {}
@@ -51,9 +59,10 @@ def main():
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
             joined += 1
 
-    print(f"Joined {joined} rows → {output}")
+    log_ok(f"Joined {joined} rows")
+    log_file(output)
     if missing:
-        print(f"  {missing} responses had no matching prompt (skipped)")
+        log_warn(f"{missing} responses had no matching prompt (skipped)")
 
 
 if __name__ == "__main__":
