@@ -18,6 +18,10 @@ final class NotificationService {
     func send(track: TrackInfo, comment: String, artwork: NSImage?) {
         NSLog("[Notification] Showing floating notification for: %@ (duration: %.0fs)", track.name, duration)
 
+        // Dismiss old notification before creating new state,
+        // otherwise dismiss() would mark the new state as isDismissing
+        dismiss()
+
         let state = NotificationState()
         self.notificationState = state
 
@@ -32,7 +36,6 @@ final class NotificationService {
     }
 
     private func showPanel<V: View>(_ content: V) {
-        dismiss()
 
         let hostingController = NSHostingController(rootView: content)
         hostingController.view.frame = NSRect(x: 0, y: 0, width: 380, height: 600)
@@ -130,7 +133,7 @@ struct FloatingNotificationView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 14) {
             // Top row: artwork, track info, dismiss button
             HStack(alignment: .top, spacing: 12) {
                 // Artwork
@@ -153,13 +156,13 @@ struct FloatingNotificationView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
                 // Track info
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 5) {
                     Text(track.name)
-                        .font(.system(.headline, weight: .semibold))
+                        .font(.system(.title3, weight: .semibold))
                         .lineLimit(2)
 
                     Text("\(track.artist) — \(track.album)")
-                        .font(.subheadline)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -181,8 +184,9 @@ struct FloatingNotificationView: View {
 
             // Comment at full width
             Text(comment)
-                .font(.callout)
+                .font(.body)
                 .foregroundStyle(.primary)
+                .lineSpacing(3)
                 .lineLimit(10)
                 .fixedSize(horizontal: false, vertical: true)
         }

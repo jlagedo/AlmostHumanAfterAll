@@ -84,6 +84,19 @@ func run(_ args: [String], limit: Int? = nil, temperature: Double = 0.5) async {
         exit(1)
     }
 
+    // Load LoRA adapter from bundle
+    var adapter: SystemLanguageModel.Adapter?
+    if let url = Bundle.main.url(forResource: "ficino_music", withExtension: "fmadapter") {
+        do {
+            adapter = try SystemLanguageModel.Adapter(fileURL: url)
+            print("Loaded adapter: ficino_music.fmadapter")
+        } catch {
+            print("Warning: failed to load adapter — \(error.localizedDescription)")
+        }
+    } else {
+        print("No adapter found in bundle, using base model")
+    }
+
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys]
 
@@ -100,7 +113,12 @@ func run(_ args: [String], limit: Int? = nil, temperature: Double = 0.5) async {
         print("[\(i + 1)/\(entries.count)] \(preview)...", terminator: " ")
 
         do {
-            let session = LanguageModelSession(instructions: instructions)
+            let session: LanguageModelSession
+            if let adapter {
+                session = LanguageModelSession(model: SystemLanguageModel(adapter: adapter), instructions: instructions)
+            } else {
+                session = LanguageModelSession(instructions: instructions)
+            }
             let result = try await session.respond(to: entry.prompt, options: GenerationOptions(temperature: temperature))
             let response = result.content
 

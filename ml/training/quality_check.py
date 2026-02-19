@@ -7,9 +7,28 @@ Output: filtered JSONL (same format, bad rows dropped)
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 import sentencepiece as spm
+
+# Unicode noise from web-scraped Genius data
+_UNICODE_JUNK = re.compile(
+    "[\u00ad"       # soft hyphen
+    "\u200b-\u200f"  # zero-width spaces, joiners, directional marks
+    "\u2028-\u2029"  # line/paragraph separators
+    "\u202a-\u202e"  # bidi embedding/override
+    "\u2066-\u2069"  # bidi isolates
+    "\ufeff"         # BOM / zero-width no-break space
+    "]"
+)
+
+
+def clean_text(text: str) -> str:
+    """Normalize ambiguous unicode in web-scraped content."""
+    text = text.replace("\u00a0", " ")  # NBSP → space
+    text = _UNICODE_JUNK.sub("", text)
+    return text
 
 TOKENIZER_PATH = Path.home() / "Developer" / "adapter_training_toolkit_v26_0_0" / "assets" / "tokenizer.model"
 MAX_SEQ_LEN = 4095
@@ -97,6 +116,8 @@ def main():
             if not line.strip():
                 continue
             entry = json.loads(line)
+            entry["prompt"] = clean_text(entry["prompt"])
+            entry["response"] = clean_text(entry["response"])
             reason = check(entry)
             if reason:
                 rejected += 1

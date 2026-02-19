@@ -17,6 +17,9 @@
 Grab SSH command from Pods > Connect > **SSH over exposed TCP**.
 
 ```bash
+
+ssh e3ifcig7fz626q-644110bb@ssh.runpod.io -i ~/.ssh/id_ed25519
+
 rsync -avz --progress \
   -e "ssh -p <PORT> -i ~/.ssh/id_ed25519" \
   ~/Developer/adapter_training_toolkit_v26_0_0/ \

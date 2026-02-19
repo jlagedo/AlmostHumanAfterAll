@@ -12,12 +12,16 @@
 		AE97E6982F41A97C0005F306 /* Secrets.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = AE97E6972F41A97C0005F306 /* Secrets.xcconfig */; };
 		AE97E6992F41A97C0005F306 /* Secrets.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = AE97E6972F41A97C0005F306 /* Secrets.xcconfig */; };
 		AECBA0C02F3ED892000EAF76 /* MusicContext in Frameworks */ = {isa = PBXBuildFile; productRef = AECBA0BF2F3ED892000EAF76 /* MusicContext */; };
+		AEDF35052F46BAB7003B9CDE /* ficino_music.fmadapter in Resources */ = {isa = PBXBuildFile; fileRef = AEDF35042F46BAB7003B9CDE /* ficino_music.fmadapter */; };
+		AEDF35062F46BAB7003B9CDE /* ficino_music.fmadapter in Resources */ = {isa = PBXBuildFile; fileRef = AEDF35042F46BAB7003B9CDE /* ficino_music.fmadapter */; };
+		AEDF35072F46BAB7003B9CDE /* ficino_music.fmadapter in Resources */ = {isa = PBXBuildFile; fileRef = AEDF35042F46BAB7003B9CDE /* ficino_music.fmadapter */; };
 		AEF2E4012F411100009E0C54 /* MusicContext in Frameworks */ = {isa = PBXBuildFile; productRef = AEF2E4022F411100009E0C54 /* MusicContext */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		AE3B67742F43B0DB0052E8B2 /* FMPromptRunner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FMPromptRunner.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AE97E6972F41A97C0005F306 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		AEDF35042F46BAB7003B9CDE /* ficino_music.fmadapter */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = ficino_music.fmadapter; sourceTree = "<group>"; };
 		AEF2E3E02F411050009E0C54 /* MusicContextGenerator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MusicContextGenerator.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C10001 /* Ficino.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ficino.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -77,6 +81,7 @@
 		E10001 = {
 			isa = PBXGroup;
 			children = (
+				AEDF35042F46BAB7003B9CDE /* ficino_music.fmadapter */,
 				AE97E6972F41A97C0005F306 /* Secrets.xcconfig */,
 				AE4B97262F42859E00D9F109 /* Ficino */,
 				AEF2E3E12F411051009E0C54 /* MusicContextGenerator */,
@@ -219,6 +224,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AEDF35072F46BAB7003B9CDE /* ficino_music.fmadapter in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -226,6 +232,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AEDF35062F46BAB7003B9CDE /* ficino_music.fmadapter in Resources */,
 				AE97E6992F41A97C0005F306 /* Secrets.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -234,6 +241,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AEDF35052F46BAB7003B9CDE /* ficino_music.fmadapter in Resources */,
 				AE97E6982F41A97C0005F306 /* Secrets.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
