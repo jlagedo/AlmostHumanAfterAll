@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from lib.log import log_phase, log_info, log_ok, log_warn, log_err, log_file
+from lib.log import log_phase, log_info, log_ok, log_warn, log_err, log_file, log_timer
 
 DATA_DIR = ROOT / "data"
 
@@ -133,44 +133,46 @@ def main():
 
     log_phase("Building FM prompts")
 
-    # Load prompt template from instruction file if version specified
-    task_prompt = None
-    if args.version:
-        instruction_path = DATA_DIR.parent / "prompts" / f"fm_instruction_{args.version}.json"
-        if not instruction_path.exists():
-            log_err(f"Not found: {instruction_path}")
-            sys.exit(1)
-        instruction = json.loads(instruction_path.read_text())
-        task_prompt = instruction.get("prompt")
+    with log_timer("Prompt building"):
+        # Load prompt template from instruction file if version specified
+        task_prompt = None
+        if args.version:
+            instruction_path = DATA_DIR.parent / "prompts" / f"fm_instruction_{args.version}.json"
+            if not instruction_path.exists():
+                log_err(f"Not found: {instruction_path}")
+                sys.exit(1)
+            instruction = json.loads(instruction_path.read_text())
+            task_prompt = instruction.get("prompt")
+            if task_prompt:
+                log_info(f"Using prompt template from {instruction_path.name}")
+
+        entries = []
+        malformed = 0
+        for line in args.input.read_text().split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entries.append(json.loads(line))
+            except json.JSONDecodeError:
+                malformed += 1
+        log_info(f"Loaded {len(entries)} context entries from {args.input.name}")
+        if malformed:
+            log_warn(f"Skipped {malformed} malformed lines")
+        results = [build_prompt(e) for e in entries]
+        skipped = results.count(None)
+        results = [r for r in results if r is not None]
+
         if task_prompt:
-            log_info(f"Using prompt template from {instruction_path.name}")
+            for r in results:
+                r["prompt"] += "\n\n" + task_prompt
 
-    entries = []
-    malformed = 0
-    for line in args.input.read_text().split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            entries.append(json.loads(line))
-        except json.JSONDecodeError:
-            malformed += 1
-    if malformed:
-        log_warn(f"Skipped {malformed} malformed lines")
-    results = [build_prompt(e) for e in entries]
-    skipped = results.count(None)
-    results = [r for r in results if r is not None]
+        if args.l is not None:
+            results = results[:args.l]
 
-    if task_prompt:
-        for r in results:
-            r["prompt"] += "\n\n" + task_prompt
-
-    if args.l is not None:
-        results = results[:args.l]
-
-    with output.open("w") as f:
-        for r in results:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        with output.open("w") as f:
+            for r in results:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
     log_ok(f"Wrote {len(results)} prompts (skipped {skipped} thin-context tracks)")
     log_file(output)

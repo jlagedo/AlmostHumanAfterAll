@@ -12,13 +12,14 @@ Usage:
 import argparse
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from lib.log import log_phase, log_info, log_ok, log_err
+from lib.log import log_phase, log_info, log_ok, log_err, log_duration, fmt_duration
 
 EVAL_DIR = ROOT / "eval"
 DATA_DIR = ROOT / "data" / "eval"
@@ -28,13 +29,17 @@ PROMPTS_DIR = ROOT / "prompts"
 def run(cmd: list[str], label: str) -> None:
     log_phase(label)
     log_info(f"$ {' '.join(cmd)}")
+    t0 = time.perf_counter()
     result = subprocess.run(cmd)
+    elapsed = time.perf_counter() - t0
     if result.returncode != 0:
-        log_err(f"{label} failed (exit {result.returncode})")
+        log_err(f"{label} failed (exit {result.returncode}) after {fmt_duration(elapsed)}")
         sys.exit(result.returncode)
+    log_duration(elapsed, label)
 
 
 def main():
+    pipeline_start = time.perf_counter()
     parser = argparse.ArgumentParser(
         description="End-to-end eval: build prompts → run model → judge output."
     )
@@ -114,7 +119,9 @@ def main():
         cmd += ["-p", str(args.passes)]
     run(cmd, f"Judging output ({version})")
 
+    total = time.perf_counter() - pipeline_start
     log_phase("Done")
+    log_duration(total, "Total pipeline")
 
 
 if __name__ == "__main__":

@@ -22,7 +22,7 @@ from rich.table import Table
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from lib.log import log_phase, log_info, log_ok, log_warn, log_err, log_file, console
+from lib.log import log_phase, log_info, log_ok, log_warn, log_err, log_file, log_duration, fmt_duration, console
 
 OUTPUT_DIR = ROOT / "data" / "synth"
 
@@ -48,22 +48,30 @@ def print_batch_status(batch) -> None:
 
 def poll(client: Anthropic, batch_id: str, interval: int) -> None:
     log_phase("Polling for completion")
+    log_info(f"Checking every {interval}s")
+    t0 = time.perf_counter()
+    polls = 0
     with console.status("[bold cyan]Waiting…") as status:
         while True:
             batch = client.messages.batches.retrieve(batch_id)
+            polls += 1
             counts = batch.request_counts
             total = counts.processing + counts.succeeded + counts.errored + counts.expired + counts.canceled
+            elapsed = time.perf_counter() - t0
             status.update(
                 f"[bold cyan]Polling[/] — "
                 f"[green]{counts.succeeded}[/]/{total} succeeded · "
                 f"{counts.processing} processing · "
-                f"[red]{counts.errored}[/] errored"
+                f"[red]{counts.errored}[/] errored · "
+                f"[dim]{fmt_duration(elapsed)} elapsed"
             )
             if batch.processing_status == "ended":
+                elapsed = time.perf_counter() - t0
                 log_ok(
                     f"Batch ended — [green]{counts.succeeded}[/] succeeded, "
                     f"[red]{counts.errored}[/] errored"
                 )
+                log_duration(elapsed, f"Polling ({polls} checks)")
                 return
             time.sleep(interval)
 
@@ -72,6 +80,7 @@ def retrieve(client: Anthropic, batch_id: str) -> tuple[list[dict], int]:
     log_phase("Retrieving results")
     results = []
     failed = 0
+    t0 = time.perf_counter()
     with console.status("[bold cyan]Streaming results…"):
         for entry in client.messages.batches.results(batch_id):
             if entry.result.type == "succeeded":
@@ -83,10 +92,12 @@ def retrieve(client: Anthropic, batch_id: str) -> tuple[list[dict], int]:
             else:
                 failed += 1
                 log_warn(f"[red]{entry.custom_id}[/] — {entry.result.type}")
+    log_duration(time.perf_counter() - t0, f"Retrieved {len(results)} results")
     return results, failed
 
 
 def main():
+    run_start = time.perf_counter()
     parser = argparse.ArgumentParser(description="Poll and retrieve Anthropic batch results.")
     parser.add_argument("batch_id", help="Batch ID to retrieve")
     parser.add_argument("--interval", type=int, default=15, help="Poll interval in seconds (default: 15)")
@@ -139,6 +150,7 @@ def main():
         table.add_row("  Failed", f"[red]{failed}")
     table.add_row("  Output", str(out_path))
     console.print(table)
+    log_duration(time.perf_counter() - run_start, "Total")
 
 
 if __name__ == "__main__":

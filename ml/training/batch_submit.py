@@ -16,6 +16,7 @@ Appends batch metadata to batches.jsonl in the working directory.
 import argparse
 import json
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -25,7 +26,7 @@ from rich.table import Table
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from lib.log import log_phase, log_info, log_ok, log_err, log_file, console
+from lib.log import log_phase, log_info, log_ok, log_err, log_file, log_duration, fmt_duration, console
 
 # MODEL = "claude-sonnet-4-5-20250929"
 MODEL = "claude-haiku-4-5-20251001"
@@ -88,15 +89,17 @@ def main():
     # Submit
     log_phase("Submitting to Anthropic Batch API")
     client = Anthropic()
+    t0 = time.perf_counter()
     try:
         with console.status("[bold cyan]Creating batch…"):
             batch = client.messages.batches.create(requests=requests)
     except APIError as e:
-        log_err(f"API error: {e}")
+        elapsed = time.perf_counter() - t0
+        log_err(f"API error after {fmt_duration(elapsed)}: {e}")
         sys.exit(1)
 
     now = datetime.now(timezone.utc)
-    log_ok(f"Batch created")
+    log_duration(time.perf_counter() - t0, "Batch created")
 
     # Summary table
     table = Table(show_header=False, show_edge=False, pad_edge=False, box=None)
