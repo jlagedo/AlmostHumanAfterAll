@@ -28,11 +28,26 @@ xcodebuild -project app/Ficino.xcodeproj -scheme Ficino -derivedDataPath ./build
 
 ## Reference Docs (`docs/`)
 
-- `apple_fm_specs.md` — Apple Intelligence Foundation Models specification
-- `3b_all.md` — Full 3B model documentation
+### Project
+- `ficino.md` — Product overview, architecture, competitive landscape, cost structure
+- `ficino_prompt_design.md` — Prompt architecture for Ficino's on-device commentary generation
+- `lora_training_plan.md` — LoRA adapter training plan (data strategy, evaluation, deployment)
+- `music_context_pipeline.md` — Music data pipeline design (Fetch → Score → Select → Prompt) with Swift code
+- `preprocessing_strategies.md` — MusicKit + Genius API schemas, extraction and compression strategies
+
+### Apple FM Reference
+- `apple_fm_specs.md` — Apple Intelligence Foundation Models technical specification
+- `3b_all.md` — Complete technical guide to the on-device 3B model
 - `3b_prompt_guide.md` — Prompt engineering guide for the 3B model
-- `3b_lora_training.mb` — LoRA training notes
-- `apple_adapter_toolkit.md` — Apple adapter/LoRA toolkit guide
+- `3b_lora_training.md` — LoRA adapter training system (architecture, toolkit, Swift integration)
+- `3b_safety_filters.md` — Safety guardrail architecture, filter configs, false positives, Ficino impact
+- `apple_adapter_toolkit.md` — Adapter Training Toolkit v26.0.0 deep reference
+
+### Working Notes
+- `musickit_api_samples.md` — Raw MusicKit API output samples (Billie Jean, Bohemian Rhapsody)
+- `runpod_ssh_setup.md` — RunPod SSH and file transfer setup
+- `scratch.md` — Scratchpad (model output samples)
+- `testing_flow.md` — Testing commands
 
 ## Skills
 

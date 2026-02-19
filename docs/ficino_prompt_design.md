@@ -9,7 +9,8 @@
 | Property | Value |
 |----------|-------|
 | Parameters | ~3B, 2-bit quantized |
-| Context window | 16,384 tokens |
+| Native context window | 16,384 tokens (model capability) |
+| API context window | **4,096 tokens** (hard limit enforced by FoundationModels framework) |
 | Strengths | Summarization, rephrasing, classification, short dialog, creative content |
 | Weaknesses | World knowledge, complex reasoning, math, code, multi-step logic |
 | Hallucination risk | Will fabricate details on familiar topics — this is expected and acceptable for Ficino's use case (personality > accuracy) |
@@ -26,9 +27,9 @@ Target output: **75 words** (~150 tokens) for casual 30-second notification read
 | Prompt (dynamic) | ~80–120 | ~60–90 |
 | Output headroom | ~150 | ~75 |
 | **Total per request** | **~330–370** | — |
-| Remaining context unused | ~15,900+ | — |
+| Remaining context | ~3,700+ | — |
 
-The model is operating well within its context window. Latency is dominated by output generation, not input processing. This is the 3B model's sweet spot — short input, short output, personality-driven.
+The model is operating well within the 4,096-token API context window. Latency is dominated by output generation, not input processing. This is the 3B model's sweet spot — short input, short output, personality-driven.
 
 ---
 
@@ -211,7 +212,7 @@ React.
 | Output | ~150 tokens | ~150 tokens |
 | **Total** | **~320 tokens** | **~400–550 tokens** |
 
-More tokens than before, but they're real facts from MusicKit instead of redundant instructions. The model gets grounded context to riff on. Still well under the 16K window — this is ~3% of capacity.
+More tokens than before, but they're real facts from MusicKit instead of redundant instructions. The model gets grounded context to riff on. Still well under the 4,096-token API window — this is ~10–13% of capacity.
 
 ---
 

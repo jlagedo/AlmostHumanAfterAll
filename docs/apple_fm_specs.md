@@ -39,8 +39,9 @@ The on-device model is a dense transformer optimized for Apple silicon with two 
 | Block split | 5:3 depth ratio (Block 1: 62.5%, Block 2: 37.5%) |
 | KV-cache sharing | Block 2 has KV projections removed; reuses Block 1 caches |
 | KV-cache memory reduction | 37.5% vs standard architecture |
-| Context window | **16,384 tokens** |
-| Vocabulary size | 150,000 tokens |
+| Native context window | 16,384 tokens |
+| **API context window** | **4,096 tokens** (hard limit enforced by FoundationModels framework) |
+| Vocabulary size | 153,600 tokens |
 | Quantization | 2-bit quantization-aware training |
 | Time-to-first-token improvement | ~37.5% via block bypass |
 
@@ -101,11 +102,11 @@ The server model uses a novel Parallel-Track Mixture-of-Experts architecture:
 | Property | Value |
 |----------|-------|
 | Original vocabulary | 100,000 tokens |
-| Expanded vocabulary | **150,000 tokens** |
+| Expanded vocabulary | **153,600 tokens** |
 | Expansion reason | Multilingual support (15-16 languages) |
 | Type | Not publicly specified (likely BPE-based) |
 
-The vocabulary expansion from 100k to 150k tokens was specifically designed for multilingual coverage, improving tokenization efficiency for non-English languages.
+The vocabulary expansion from 100k to 153,600 tokens was specifically designed for multilingual coverage, improving tokenization efficiency for non-English languages.
 
 ---
 
@@ -766,7 +767,7 @@ Apple provides an **Adapter Training Toolkit** for ML practitioners to fine-tune
 ### 15.2 Capabilities
 
 - Train custom adapters on proprietary datasets
-- Adapters are small (a few MB) and can be distributed with apps
+- Rank-32 adapters are ~160 MB each; distributed via Background Assets framework, not bundled in app binary
 - Multiple adapters can be swapped at runtime for different tasks
 - Quality recovery after quantization (used by Apple internally for server model)
 
@@ -789,14 +790,14 @@ Apple provides an **Adapter Training Toolkit** for ML practitioners to fine-tune
 
 - **On-device only** — cannot call the server model via FoundationModels framework
 - **No fine-grained token counting** — no public API to count tokens before submission
-- **Context window is hard** — exceeding 16k tokens throws, no automatic truncation
+- **Context window is hard** — exceeding 4,096 tokens throws `exceededContextWindowSize`, no automatic truncation
 - **Model updates are opaque** — Apple may update the model via OS updates; output can change
 - **No response metadata** — no token usage, finish reason, or logprobs exposed
 - **Limited model selection** — only `.default` and use-case variants, no model size choice
 
 ### 16.3 Token Budget Guidelines
 
-For a 16k token context window, approximate budget allocation:
+For the 4,096-token API context window, approximate budget allocation:
 
 | Component | Approximate Tokens |
 |-----------|--------------------|
@@ -806,7 +807,7 @@ For a 16k token context window, approximate budget allocation:
 | User prompt + context | Variable |
 | Output generation | 400–800 |
 | Safety margin | ~200 |
-| **Available for content** | **~14,000–15,000** |
+| **Available for content** | **~2,000–2,900** |
 
 ---
 

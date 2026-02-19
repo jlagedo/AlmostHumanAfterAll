@@ -75,11 +75,14 @@ See `docs/training_pipeline.md` and `docs/lora_training_guide.md` for the full w
 ## Reference Docs
 
 These live in `docs/` at the repo root:
-- `docs/3b_all.md` — Full 3B model documentation
+- `docs/3b_all.md` — Complete technical guide to the on-device 3B model
 - `docs/3b_prompt_guide.md` — Prompt engineering guide for the 3B model
-- `docs/3b_lora_training.mb` — LoRA training notes
-- `docs/apple_fm_specs.md` — Apple Intelligence Foundation Models specification
-- `docs/apple_adapter_toolkit.md` — Apple adapter/LoRA toolkit guide
+- `docs/3b_lora_training.md` — LoRA adapter training system (architecture, toolkit, Swift integration)
+- `docs/3b_safety_filters.md` — Safety guardrail architecture, filter configs, Ficino impact
+- `docs/apple_fm_specs.md` — Apple Intelligence Foundation Models technical specification
+- `docs/apple_adapter_toolkit.md` — Adapter Training Toolkit v26.0.0 deep reference
+- `docs/ficino_prompt_design.md` — Prompt architecture for Ficino's commentary generation
+- `docs/lora_training_plan.md` — LoRA adapter training plan (data strategy, evaluation, deployment)
 
 ## Context
 

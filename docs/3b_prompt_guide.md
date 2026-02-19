@@ -18,7 +18,7 @@ The underlying 2025 model natively supports 16,384 tokens (and up to ~205K via R
 **Token density by language:**
 - English/Spanish/German: ~3-4 characters per token
 - Japanese/Chinese/Korean: ~1 character per token (the effective context window is ~3-4x smaller for CJK content)
-- The 150,000-token vocabulary was expanded from 100K specifically for multilingual support
+- The 153,600-token vocabulary was expanded from 100K specifically for multilingual support
 
 **There is no public tokenizer API.** Practical heuristics:
 - Divide character count by 3.5 for English text
