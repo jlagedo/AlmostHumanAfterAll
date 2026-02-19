@@ -19,7 +19,7 @@ fi
 
 DATA="$(pwd)/../data"
 
-OUTPUT="$DATA/eval_output/output_${VERSION}_$(date +%Y%m%d_%H%M%S).jsonl"
+OUTPUT="$DATA/eval/output_${VERSION}_$(date +%Y%m%d_%H%M%S).jsonl"
 mkdir -p "$(dirname "$OUTPUT")"
 
 PROMPTS="$DATA/../prompts"
@@ -30,4 +30,4 @@ if [ ! -f "$INSTRUCTION" ]; then
     exit 1
 fi
 
-"$APP" "$DATA/eval_output/prompts_top100.jsonl" "$INSTRUCTION" "$OUTPUT" "$@"
+"$APP" "$DATA/eval/prompts_top100.jsonl" "$INSTRUCTION" "$OUTPUT" "$@"

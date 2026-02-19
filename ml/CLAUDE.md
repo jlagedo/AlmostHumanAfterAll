@@ -15,9 +15,14 @@ uv run python script.py
 
 ```
 prompts/       Prompt templates and variations for the Ficino personality
-eval/          Evaluation scripts and benchmarks for commentary quality
-training/      LoRA fine-tuning pipelines
-data/          Datasets (not tracked in git)
+eval/          Evaluation scripts (generator, prompt builder, FM runner, LLM judge)
+training/      LoRA fine-tuning scripts (batch API, data prep, quality checks)
+docs/          ML-specific guides (eval pipeline, training pipeline, LoRA guide)
+data/          All artifacts, not tracked in git:
+  eval/          Eval pipeline intermediates and output (CSVs, context, prompts, scores)
+  synth/         Synthetic training data from batch API
+  training/      Final train/eval splits for LoRA
+  raw/           Source data (charts, batch metadata)
 ```
 
 ## Reference Docs

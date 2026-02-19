@@ -5,7 +5,7 @@ Usage:
     uv run python training/batch_retrieve.py <batch_id>
     uv run python training/batch_retrieve.py --interval 30 <batch_id>
 
-Output: data/learn_output/batch_<batch_id_short>_<date>.jsonl
+Output: data/synth/batch_<batch_id_short>_<date>.jsonl
     Each line: {"id": "<custom_id>", "response": "<text>", "stop_reason": "..."}
 """
 
@@ -20,7 +20,7 @@ from anthropic import Anthropic, APIError
 from rich.console import Console
 from rich.table import Table
 
-OUTPUT_DIR = Path(__file__).parent.parent / "data" / "learn_output"
+OUTPUT_DIR = Path(__file__).parent.parent / "data" / "synth"
 
 console = Console()
 err_console = Console(stderr=True)

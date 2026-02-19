@@ -2,13 +2,13 @@
 """Rank AFM 3B output quality using Anthropic API as LLM judge.
 
 Usage:
-    uv run python eval/rank_output.py data/eval_output/output_v14_*.jsonl
-    uv run python eval/rank_output.py -l 10 data/eval_output/output_v14_*.jsonl
-    uv run python eval/rank_output.py -l 5 -p 2 data/eval_output/output_v14_*.jsonl
+    uv run python eval/rank_output.py data/eval/output_v14_*.jsonl
+    uv run python eval/rank_output.py -l 10 data/eval/output_v14_*.jsonl
+    uv run python eval/rank_output.py -l 5 -p 2 data/eval/output_v14_*.jsonl
 
 Scores each prompt/response pair on 5 dimensions (0-3), flags failure
-patterns, updates eval/version_rank.md and writes per-response details
-to eval/vrank/{version}_details.md.
+patterns, updates data/eval/version_rank.md and writes per-response details
+to data/eval/vrank/{version}_details.md.
 
 Re-running the same version replaces previous results.
 """
@@ -29,9 +29,9 @@ from rich.table import Table
 console = Console()
 err_console = Console(stderr=True)
 
-EVAL_DIR = Path(__file__).parent
-RANK_FILE = EVAL_DIR / "version_rank.md"
-DETAILS_DIR = EVAL_DIR / "vrank"
+DATA_DIR = Path(__file__).parent.parent / "data" / "eval"
+RANK_FILE = DATA_DIR / "version_rank.md"
+DETAILS_DIR = DATA_DIR / "vrank"
 DIMS = ["faith", "ground", "tone", "conc", "acc"]
 FLAG_CODES = "PHECM"
 FLAG_NAMES = {

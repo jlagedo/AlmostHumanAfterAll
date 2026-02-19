@@ -3,11 +3,11 @@
 
 Usage:
     uv run python training/batch_submit.py \\
-        --prompts data/eval_output/prompts_top100.jsonl \\
+        --prompts data/eval/prompts_top100.jsonl \\
         --instruction prompts/fm_instruction_v17.json
 
     uv run python training/batch_submit.py \\
-        --prompts data/eval_output/prompts_top100.jsonl \\
+        --prompts data/eval/prompts_top100.jsonl \\
         --system "You are a world-class music journalist..."
 
 Appends batch metadata to batches.jsonl in the working directory.
@@ -139,7 +139,7 @@ def main():
         "prompts_file": str(args.prompts),
         "submitted_at": now.isoformat(),
     }
-    log_path = Path("batches.jsonl")
+    log_path = Path(__file__).parent.parent / "data" / "raw" / "batches.jsonl"
     with log_path.open("a") as f:
         f.write(json.dumps(log_entry) + "\n")
     log_file(log_path)
