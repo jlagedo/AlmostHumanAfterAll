@@ -41,27 +41,85 @@ def run(cmd: list[str], label: str) -> None:
 def main():
     pipeline_start = time.perf_counter()
     parser = argparse.ArgumentParser(
-        description="End-to-end eval: build prompts → run model → judge output."
+        description="End-to-end eval pipeline: build prompts → run on-device model → "
+                    "LLM judge. Each step can be skipped by supplying its output directly.",
+        epilog="""\
+examples:
+  uv run python eval/run_eval.py v19                         # full pipeline
+  uv run python eval/run_eval.py v19 -l 10                   # limit to 10 entries
+  uv run python eval/run_eval.py v19 -l 10 -p 3              # 3 judge passes
+  uv run python eval/run_eval.py v19 -t 0.8                  # custom temperature
+  uv run python eval/run_eval.py v19 --prompts prompts.jsonl # skip build step
+  uv run python eval/run_eval.py v19 --output output.jsonl   # skip build+model, judge only
+
+pipeline steps:
+  1. build_prompts.py  — assemble FM prompts from context JSONL (skip with --prompts)
+  2. run_model.sh      — run prompts through on-device model   (skip with --output)
+  3. judge_output.py   — score outputs with LLM judge""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("version", help="Version tag (e.g. v19)")
-    parser.add_argument("-l", "--limit", type=int, default=None,
-                        help="Limit number of prompts/responses")
-    parser.add_argument("-p", "--passes", type=int, default=1,
-                        help="Number of judge passes (default: 1)")
-    parser.add_argument("-t", "--temperature", type=float, default=None,
-                        help="Model temperature (forwarded to FMPromptRunner)")
-    parser.add_argument("--context", type=Path, default=DATA_DIR / "context_top100.jsonl",
-                        help="Context JSONL file (default: data/eval/context_top100.jsonl)")
-    parser.add_argument("--prompts", type=Path, default=None,
-                        help="Skip build step, use existing prompts file")
-    parser.add_argument("--output", type=Path, default=None,
-                        help="Skip build+model steps, just judge this output file")
+    parser.add_argument(
+        "version",
+        help="version tag (e.g. v19) — must match an existing instruction file at "
+             "prompts/fm_instruction_<version>.json",
+    )
+    parser.add_argument(
+        "-l", "--limit", type=int, default=None,
+        help="maximum number of prompts/responses to process at each stage "
+             "(default: no limit)",
+    )
+    parser.add_argument(
+        "-p", "--passes", type=int, default=1,
+        help="number of independent judge passes for variance estimation (default: 1)",
+    )
+    parser.add_argument(
+        "-t", "--temperature", type=float, default=None,
+        help="model sampling temperature forwarded to FMPromptRunner "
+             "(default: model's built-in default)",
+    )
+    parser.add_argument(
+        "--context", type=Path, default=DATA_DIR / "context_top100.jsonl",
+        help="context JSONL file with MusicKit + Genius metadata "
+             "(default: data/eval/context_top100.jsonl)",
+    )
+    parser.add_argument(
+        "--prompts", type=Path, default=None,
+        help="skip the build step and use this existing prompts JSONL file instead",
+    )
+    parser.add_argument(
+        "--output", type=Path, default=None,
+        help="skip build and model steps — judge this output JSONL file directly",
+    )
     args = parser.parse_args()
+
+    if args.limit is not None and args.limit < 1:
+        log_err(f"--limit must be a positive integer, got {args.limit}")
+        sys.exit(1)
+
+    if args.passes < 1:
+        log_err(f"--passes must be a positive integer, got {args.passes}")
+        sys.exit(1)
+
+    if args.temperature is not None and args.temperature < 0:
+        log_err(f"--temperature must be non-negative, got {args.temperature}")
+        sys.exit(1)
 
     version = args.version
     instruction = PROMPTS_DIR / f"fm_instruction_{version}.json"
     if not instruction.exists():
         log_err(f"Instruction file not found: {instruction}")
+        sys.exit(1)
+
+    if not args.output and not args.prompts and not args.context.exists():
+        log_err(f"Context file not found: {args.context}")
+        sys.exit(1)
+
+    if args.prompts and not args.prompts.exists():
+        log_err(f"Prompts file not found: {args.prompts}")
+        sys.exit(1)
+
+    if args.output and not args.output.exists():
+        log_err(f"Output file not found: {args.output}")
         sys.exit(1)
 
     # Step 1: Build prompts (unless --prompts or --output given)

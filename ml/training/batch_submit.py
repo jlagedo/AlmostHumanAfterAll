@@ -53,11 +53,41 @@ def build_requests(prompts: list[dict], system: str) -> list[dict]:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Submit prompts to Anthropic Batch API.")
-    parser.add_argument("--prompts", type=Path, required=True, help="JSONL file with id + prompt fields")
+    parser = argparse.ArgumentParser(
+        description="Submit a prompts JSONL file to Anthropic's Message Batches API. "
+                    "Each prompt is paired with a system prompt (provided inline or "
+                    "loaded from an instruction JSON file) and sent as a batch request. "
+                    "Batch metadata is appended to data/raw/batches.jsonl.",
+        epilog="""\
+examples:
+  uv run python training/batch_submit.py \\
+      --prompts data/eval/prompts_top100.jsonl \\
+      --instruction prompts/fm_instruction_v17.json
+
+  uv run python training/batch_submit.py \\
+      --prompts data/eval/prompts_top100.jsonl \\
+      --system "You are a world-class music journalist..."
+
+note:
+  Requires ANTHROPIC_API_KEY. Exactly one of --system or --instruction
+  must be provided.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--prompts", type=Path, required=True,
+        help="JSONL file where each line is a JSON object with 'id' (unique "
+             "identifier) and 'prompt' (user message text) fields",
+    )
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--system", type=str, help="System prompt string")
-    group.add_argument("--instruction", type=Path, help="Instruction JSON file (uses 'instructions' field)")
+    group.add_argument(
+        "--system", type=str,
+        help="system prompt string passed directly to the API",
+    )
+    group.add_argument(
+        "--instruction", type=Path,
+        help="path to an instruction JSON file — the 'instructions' field is "
+             "used as the system prompt",
+    )
     args = parser.parse_args()
 
     # Load system prompt

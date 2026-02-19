@@ -120,14 +120,42 @@ def build_prompt(entry: dict) -> dict | None:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate FM-format prompts from context JSONL.")
-    parser.add_argument("input", type=Path, help="Input context JSONL file")
-    parser.add_argument("-o", "--output", type=Path, default=None,
-                        help="Output JSONL path (default: <input_stem>_prompts.jsonl in same dir)")
-    parser.add_argument("-l", type=int, default=None, help="Limit number of output prompts")
-    parser.add_argument("-v", "--version", type=str, default=None,
-                        help="Version tag (e.g. v17) — reads prompt template from prompts/fm_instruction_<version>.json")
+    parser = argparse.ArgumentParser(
+        description="Generate FM-format prompts from a context JSONL file.",
+        epilog="""\
+examples:
+  uv run python eval/build_prompts.py data/eval/context_top100.jsonl
+  uv run python eval/build_prompts.py data/eval/context_top100.jsonl -v v17
+  uv run python eval/build_prompts.py data/eval/context_top100.jsonl -v v17 -l 20 -o out.jsonl""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "input", type=Path,
+        help="path to a context JSONL file where each line is a JSON object "
+             "with 'track', 'artist', 'album', 'musickit', and 'genius' fields",
+    )
+    parser.add_argument(
+        "-o", "--output", type=Path, default=None,
+        help="output JSONL path (default: <input_stem>_prompts.jsonl in the same directory)",
+    )
+    parser.add_argument(
+        "-l", "--limit", type=int, default=None,
+        help="maximum number of prompts to write (default: no limit)",
+    )
+    parser.add_argument(
+        "-v", "--version", type=str, default=None,
+        help="version tag (e.g. v17) — loads the task prompt from "
+             "prompts/fm_instruction_<version>.json and appends it to each prompt",
+    )
     args = parser.parse_args()
+
+    if not args.input.exists():
+        log_err(f"Input file not found: {args.input}")
+        sys.exit(1)
+
+    if args.limit is not None and args.limit < 1:
+        log_err(f"--limit must be a positive integer, got {args.limit}")
+        sys.exit(1)
 
     output = args.output or args.input.parent / f"{args.input.stem}_prompts.jsonl"
 
@@ -167,8 +195,8 @@ def main():
             for r in results:
                 r["prompt"] += "\n\n" + task_prompt
 
-        if args.l is not None:
-            results = results[:args.l]
+        if args.limit is not None:
+            results = results[:args.limit]
 
         with output.open("w") as f:
             for r in results:

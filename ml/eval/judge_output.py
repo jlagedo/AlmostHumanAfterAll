@@ -550,11 +550,47 @@ def print_results(version: str, summary: dict, entries: list[dict]) -> None:
 
 def main() -> None:
     run_start = time.perf_counter()
-    parser = argparse.ArgumentParser(description="Rank AFM output quality using LLM judge")
-    parser.add_argument("-l", "--limit", type=int, default=None, help="max entries to evaluate")
-    parser.add_argument("-p", "--passes", type=int, default=1, help="number of judge passes (default: 1)")
-    parser.add_argument("file", type=Path, help="output JSONL file to evaluate")
+    parser = argparse.ArgumentParser(
+        description="Score AFM 3B model outputs using an LLM judge (Claude Sonnet). "
+                    "Each prompt/response pair is scored on 5 dimensions (0-3): "
+                    "faithfulness, groundedness, tone, conciseness, and accuracy. "
+                    "Results update data/eval/version_rank.md and write per-response "
+                    "details to data/eval/vrank/<version>_details.md.",
+        epilog="""\
+examples:
+  uv run python eval/judge_output.py data/eval/output_v14.jsonl
+  uv run python eval/judge_output.py -l 10 data/eval/output_v14.jsonl
+  uv run python eval/judge_output.py -l 5 -p 3 data/eval/output_v14.jsonl
+
+note:
+  Requires ANTHROPIC_API_KEY. Do NOT run inside Claude Code (it calls the
+  Anthropic API and may conflict with the host process).""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "-l", "--limit", type=int, default=None,
+        help="maximum number of entries to evaluate (default: all entries in the file)",
+    )
+    parser.add_argument(
+        "-p", "--passes", type=int, default=1,
+        help="number of independent judge passes; when >1, dimension scores are "
+             "averaged and flags are majority-voted across passes (default: 1)",
+    )
+    parser.add_argument(
+        "file", type=Path,
+        help="output JSONL file to evaluate — each line must have 'prompt' and "
+             "'response' fields; the version tag is extracted from the filename "
+             "(e.g. output_v14_20250601.jsonl → v14)",
+    )
     args = parser.parse_args()
+
+    if args.limit is not None and args.limit < 1:
+        log_err(f"--limit must be a positive integer, got {args.limit}")
+        sys.exit(1)
+
+    if args.passes < 1:
+        log_err(f"--passes must be a positive integer, got {args.passes}")
+        sys.exit(1)
 
     path: Path = args.file
     if not path.exists():

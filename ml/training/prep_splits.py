@@ -46,14 +46,49 @@ def format_row(entry: dict) -> list[dict]:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Prepare Apple toolkit training data.")
-    parser.add_argument("input", type=Path, help="Quality-checked JSONL file")
-    parser.add_argument("--eval-ratio", type=float, default=0.1,
-                        help="Fraction of data to hold out for eval (default: 0.1)")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed for split")
-    parser.add_argument("-o", "--output-dir", type=Path, default=None,
-                        help="Output directory (default: ml/data/training/<timestamp>)")
+    parser = argparse.ArgumentParser(
+        description="Convert quality-checked JSONL into Apple Adapter Training Toolkit "
+                    "format. Produces train.jsonl and eval.jsonl files where each line "
+                    "is a JSON array of [system, user, assistant] message objects.",
+        epilog="""\
+examples:
+  uv run python training/prep_splits.py data/synth/joined_checked.jsonl
+  uv run python training/prep_splits.py data/synth/joined_checked.jsonl --eval-ratio 0.2
+  uv run python training/prep_splits.py data/synth/joined_checked.jsonl --seed 123
+  uv run python training/prep_splits.py data/synth/joined_checked.jsonl -o data/training/run1
+
+output format (each line):
+  [{"role": "system", ...}, {"role": "user", ...}, {"role": "assistant", ...}]""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "input", type=Path,
+        help="quality-checked JSONL file — each line must have 'prompt' and "
+             "'response' fields (produced by quality_check.py)",
+    )
+    parser.add_argument(
+        "--eval-ratio", type=float, default=0.1,
+        help="fraction of data to hold out for evaluation, between 0 and 1 "
+             "(default: 0.1)",
+    )
+    parser.add_argument(
+        "--seed", type=int, default=42,
+        help="random seed for reproducible train/eval split (default: 42)",
+    )
+    parser.add_argument(
+        "-o", "--output-dir", type=Path, default=None,
+        help="output directory for train.jsonl and eval.jsonl "
+             "(default: data/training/<timestamp>)",
+    )
     args = parser.parse_args()
+
+    if not args.input.exists():
+        log_err(f"Input file not found: {args.input}")
+        sys.exit(1)
+
+    if not (0 <= args.eval_ratio <= 1):
+        log_err(f"--eval-ratio must be between 0 and 1, got {args.eval_ratio}")
+        sys.exit(1)
 
     log_phase("Preparing training splits")
 
