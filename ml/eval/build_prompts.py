@@ -12,10 +12,16 @@ Output: one JSON object per line with { "id", "prompt" }
 import argparse
 import json
 import re
+import sys
 import uuid
 from pathlib import Path
 
-DATA_DIR = Path(__file__).parent.parent / "data"
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from lib.log import log_phase, log_info, log_ok, log_warn, log_err, log_file
+
+DATA_DIR = ROOT / "data"
 
 
 JUNK_PHRASES = [
@@ -125,17 +131,19 @@ def main():
 
     output = args.output or args.input.parent / f"{args.input.stem}_prompts.jsonl"
 
+    log_phase("Building FM prompts")
+
     # Load prompt template from instruction file if version specified
     task_prompt = None
     if args.version:
         instruction_path = DATA_DIR.parent / "prompts" / f"fm_instruction_{args.version}.json"
         if not instruction_path.exists():
-            print(f"Error: {instruction_path} not found")
-            return
+            log_err(f"Not found: {instruction_path}")
+            sys.exit(1)
         instruction = json.loads(instruction_path.read_text())
         task_prompt = instruction.get("prompt")
         if task_prompt:
-            print(f"Using prompt template from {instruction_path.name}")
+            log_info(f"Using prompt template from {instruction_path.name}")
 
     entries = []
     malformed = 0
@@ -148,7 +156,7 @@ def main():
         except json.JSONDecodeError:
             malformed += 1
     if malformed:
-        print(f"Skipped {malformed} malformed lines")
+        log_warn(f"Skipped {malformed} malformed lines")
     results = [build_prompt(e) for e in entries]
     skipped = results.count(None)
     results = [r for r in results if r is not None]
@@ -164,7 +172,8 @@ def main():
         for r in results:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
-    print(f"Wrote {len(results)} prompts to {output} (skipped {skipped} thin-context tracks)")
+    log_ok(f"Wrote {len(results)} prompts (skipped {skipped} thin-context tracks)")
+    log_file(output)
 
 
 if __name__ == "__main__":

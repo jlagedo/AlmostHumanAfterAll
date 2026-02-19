@@ -20,35 +20,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from anthropic import Anthropic, APIError
-from rich.console import Console
 from rich.table import Table
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from lib.log import log_phase, log_info, log_ok, log_err, log_file, console
 
 # MODEL = "claude-sonnet-4-5-20250929"
 MODEL = "claude-haiku-4-5-20251001"
 MAX_TOKENS = 512
-
-console = Console()
-err_console = Console(stderr=True)
-
-
-def log_phase(msg: str) -> None:
-    console.print(f"\n[bold cyan]▸ {msg}")
-
-
-def log_info(msg: str) -> None:
-    console.print(f"  [dim]{msg}")
-
-
-def log_ok(msg: str) -> None:
-    console.print(f"  [green]✓[/] {msg}")
-
-
-def log_err(msg: str) -> None:
-    err_console.print(f"  [red]✗[/] {msg}")
-
-
-def log_file(path: Path) -> None:
-    console.print(f"  [dim]→[/] {path}")
 
 
 def load_prompts(path: Path) -> list[dict]:

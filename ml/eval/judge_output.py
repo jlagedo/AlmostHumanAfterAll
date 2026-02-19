@@ -16,20 +16,21 @@ Re-running the same version replaces previous results.
 import argparse
 import json
 import re
-import anthropic
-import pydantic
 import sys
 import time
 from datetime import date
 from pathlib import Path
 
-from rich.console import Console
+import anthropic
+import pydantic
 from rich.table import Table
 
-console = Console()
-err_console = Console(stderr=True)
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 
-DATA_DIR = Path(__file__).parent.parent / "data" / "eval"
+from lib.log import log_phase, log_info, log_ok, log_warn, log_err, log_file, console, err_console
+
+DATA_DIR = ROOT / "data" / "eval"
 RANK_FILE = DATA_DIR / "version_rank.md"
 DETAILS_DIR = DATA_DIR / "vrank"
 DIMS = ["faith", "ground", "tone", "conc", "acc"]
@@ -49,30 +50,6 @@ FLAG_COLORS = {
     "C": "yellow",
     "M": "red",
 }
-
-
-def log_phase(msg: str) -> None:
-    console.print(f"\n[bold cyan]▸ {msg}")
-
-
-def log_info(msg: str) -> None:
-    console.print(f"  [dim]{msg}")
-
-
-def log_ok(msg: str) -> None:
-    console.print(f"  [green]✓[/] {msg}")
-
-
-def log_warn(msg: str) -> None:
-    console.print(f"  [yellow]⚠[/] {msg}")
-
-
-def log_err(msg: str) -> None:
-    err_console.print(f"  [red]✗[/] {msg}")
-
-
-def log_file(path: Path) -> None:
-    console.print(f"  [dim]→[/] {path}")
 
 
 def color_score(score: float, max_score: float) -> str:

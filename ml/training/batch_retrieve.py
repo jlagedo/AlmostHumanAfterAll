@@ -17,37 +17,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from anthropic import Anthropic, APIError
-from rich.console import Console
 from rich.table import Table
 
-OUTPUT_DIR = Path(__file__).parent.parent / "data" / "synth"
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 
-console = Console()
-err_console = Console(stderr=True)
+from lib.log import log_phase, log_info, log_ok, log_warn, log_err, log_file, console
 
-
-def log_phase(msg: str) -> None:
-    console.print(f"\n[bold cyan]▸ {msg}")
-
-
-def log_info(msg: str) -> None:
-    console.print(f"  [dim]{msg}")
-
-
-def log_ok(msg: str) -> None:
-    console.print(f"  [green]✓[/] {msg}")
-
-
-def log_warn(msg: str) -> None:
-    console.print(f"  [yellow]⚠[/] {msg}")
-
-
-def log_err(msg: str) -> None:
-    err_console.print(f"  [red]✗[/] {msg}")
-
-
-def log_file(path: Path) -> None:
-    console.print(f"  [dim]→[/] {path}")
+OUTPUT_DIR = ROOT / "data" / "synth"
 
 
 def print_batch_status(batch) -> None:

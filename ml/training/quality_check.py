@@ -8,7 +8,13 @@ Output: filtered JSONL (same format, bad rows dropped)
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from lib.log import log_phase, log_ok, log_info, log_file
 
 import sentencepiece as spm
 
@@ -107,6 +113,8 @@ def main():
 
     output = args.output or args.input.parent / f"{args.input.stem}_checked.jsonl"
 
+    log_phase("Running quality checks")
+
     passed = 0
     rejected = 0
     reasons: dict[str, int] = {}
@@ -126,10 +134,11 @@ def main():
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
                 passed += 1
 
-    print(f"Passed: {passed}  Rejected: {rejected}  → {output}")
+    log_ok(f"Passed: {passed}  Rejected: {rejected}")
+    log_file(output)
     if reasons:
         for r, count in sorted(reasons.items(), key=lambda x: -x[1]):
-            print(f"  {r}: {count}")
+            log_info(f"{r}: {count}")
 
 
 if __name__ == "__main__":
