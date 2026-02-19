@@ -98,10 +98,36 @@ def retrieve(client: Anthropic, batch_id: str) -> tuple[list[dict], int]:
 
 def main():
     run_start = time.perf_counter()
-    parser = argparse.ArgumentParser(description="Poll and retrieve Anthropic batch results.")
-    parser.add_argument("batch_id", help="Batch ID to retrieve")
-    parser.add_argument("--interval", type=int, default=15, help="Poll interval in seconds (default: 15)")
+    parser = argparse.ArgumentParser(
+        description="Poll an Anthropic message batch until it finishes, then download "
+                    "and save the results. Output is written to "
+                    "data/synth/batch_<id_short>_<date>.jsonl where each line contains "
+                    "'id', 'response', and 'stop_reason' fields.",
+        epilog="""\
+examples:
+  uv run python training/batch_retrieve.py msgbatch_abc123
+  uv run python training/batch_retrieve.py --interval 30 msgbatch_abc123
+
+note:
+  Requires ANTHROPIC_API_KEY. If the batch has already ended, polling is
+  skipped and results are downloaded immediately.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "batch_id",
+        help="Anthropic message batch ID to retrieve (e.g. msgbatch_abc123 — "
+             "shown in batch_submit.py output and logged in data/raw/batches.jsonl)",
+    )
+    parser.add_argument(
+        "--interval", type=int, default=15,
+        help="seconds between polling attempts while waiting for the batch to "
+             "finish (default: 15)",
+    )
     args = parser.parse_args()
+
+    if args.interval < 1:
+        log_err(f"--interval must be a positive integer, got {args.interval}")
+        sys.exit(1)
 
     client = Anthropic()
 

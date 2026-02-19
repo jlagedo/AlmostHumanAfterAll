@@ -106,11 +106,47 @@ def check(entry: dict) -> str | None:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Quality-check joined data for training.")
-    parser.add_argument("input", type=Path, help="Joined JSONL file")
-    parser.add_argument("-o", "--output", type=Path, default=None,
-                        help="Output JSONL path (default: <input_stem>_checked.jsonl)")
+    parser = argparse.ArgumentParser(
+        description="Run quality checks on joined prompt+response data before training. "
+                    "Filters out entries that are too short/long, exceed the model's "
+                    "sequence length, or contain refusal patterns. Also normalizes "
+                    "unicode artifacts from web-scraped Genius data.",
+        epilog="""\
+examples:
+  uv run python training/quality_check.py data/synth/joined_batch_abc123.jsonl
+  uv run python training/quality_check.py data/synth/joined.jsonl -o data/synth/clean.jsonl
+
+checks applied:
+  - refusal detection   (responses starting with "I appreciate", "I cannot", etc.)
+  - length bounds       (response must be 100-1500 characters)
+  - sequence length     (full training row must fit in 4095 tokens)
+  - unicode cleanup     (strips zero-width chars, NBSP, bidi marks)
+
+requires:
+  SentencePiece tokenizer at ~/Developer/adapter_training_toolkit_v26_0_0/assets/tokenizer.model""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "input", type=Path,
+        help="joined JSONL file — each line must have 'id', 'prompt', 'response', "
+             "and 'stop_reason' fields (produced by join_batches.py)",
+    )
+    parser.add_argument(
+        "-o", "--output", type=Path, default=None,
+        help="output JSONL path for entries that pass all checks "
+             "(default: <input_stem>_checked.jsonl in the same directory)",
+    )
     args = parser.parse_args()
+
+    if not args.input.exists():
+        log_err(f"Input file not found: {args.input}")
+        sys.exit(1)
+
+    if not TOKENIZER_PATH.exists():
+        log_err(f"Tokenizer not found: {TOKENIZER_PATH}")
+        log_err("Download the Apple Adapter Training Toolkit and ensure the tokenizer "
+                "is at the expected path.")
+        sys.exit(1)
 
     output = args.output or args.input.parent / f"{args.input.stem}_checked.jsonl"
 
