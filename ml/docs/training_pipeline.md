@@ -18,12 +18,16 @@ Grab SSH command from Pods > Connect > **SSH over exposed TCP**.
 
 ```bash
 
-ssh e3ifcig7fz626q-644110bb@ssh.runpod.io -i ~/.ssh/id_ed25519
+scp -P 14938 -i ~/.ssh/id_ed25519 adapter_training_toolkit_v26_0_0.zip root@154.54.102.31:/workspace
 
 rsync -avz --progress \
   -e "ssh -p <PORT> -i ~/.ssh/id_ed25519" \
   ~/Developer/adapter_training_toolkit_v26_0_0/ \
   root@<POD_IP>:/workspace/toolkit/
+
+
+ssh root@154.54.102.31 -P 14938 -i ~/.ssh/id_ed25519
+scp -P 14938 -i ~/.ssh/id_ed25519 
 
 scp -P <PORT> -i ~/.ssh/id_ed25519 \
   train.jsonl eval.jsonl \
@@ -53,6 +57,20 @@ python -m examples.train_adapter \
   --checkpoint-dir ./checkpoints/ \
   --checkpoint-frequency 1
 
+
+  python -m examples.train_adapter \
+      --train-data train.jsonl \
+      --eval-data eval.jsonl \
+      --epochs 5 \
+      --learning-rate 1e-3 \
+      --batch-size 4 \
+      --pack-sequences \
+      --max-sequence-length 4095 \
+      --precision bf16-mixed \
+      --activation-checkpointing \
+      --checkpoint-dir ./checkpoints/ \
+      --checkpoint-frequency 1
+
 # DRAFT MODEL (optional, 2-4x inference speed)
 python -m examples.train_draft_model \
   --checkpoint ./checkpoints/adapter-final.pt \
@@ -78,6 +96,14 @@ scp -r -P <PORT> -i ~/.ssh/id_ed25519 \
   root@<POD_IP>:/workspace/toolkit/exports/ \
   ./exports/
 ```
+
+scp -r -P 14938-i ~/.ssh/id_ed25519 \
+  root@154.54.102.31:/workspace/move/ \
+  .
+
+
+
+ssh root@154.54.102.31 -P 14938 -i ~/.ssh/id_ed25519
 
 ## 5. TERMINATE
 

@@ -70,9 +70,13 @@ def build_prompt(entry: dict) -> dict | None:
     genius_artist = genius.get("artist") or {}
     genius_trivia = genius.get("trivia") or {}
 
-    # Filter: require TrackDescription (Tiers A/B/C only — skip D and E)
+    # Filter: require at least one rich text source beyond basic metadata
     wiki_raw = genius_track.get("wikiSummary")
-    if not wiki_raw or is_junk(wiki_raw):
+    has_wiki = wiki_raw and not is_junk(wiki_raw)
+    bio = genius_artist.get("bio")
+    has_bio = bio and not is_junk(bio)
+    has_editorial = bool(album.get("editorialNotesShort") or artist_mk.get("editorialNotesShort"))
+    if not (has_wiki or has_bio or has_editorial):
         return None
 
     sections: list[str] = []

@@ -65,7 +65,23 @@
       "WebFetch(domain:mjtsai.com)",
       "Bash(top:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(uv add:*)"
+      "Bash(uv add:*)",
+      "Bash(git remote add:*)",
+      "Bash(git count-objects:*)",
+      "Bash(git mv:*)",
+      "Bash(git -C /Users/jlagedo/Developer/Ficino status -u)",
+      "Bash(git -C /Users/jlagedo/Developer/Ficino diff --stat)",
+      "Bash(git -C /Users/jlagedo/Developer/Ficino log --oneline -3)",
+      "Bash(git -C /Users/jlagedo/Developer/Ficino add:*)",
+      "Bash(git -C:*)",
+      "Bash(xcrun altool:*)",
+      "Bash(xcrun ba-package:*)",
+      "Bash(csound:*)",
+      "Bash(afplay:*)",
+      "Bash(pip3 list:*)",
+      "Bash(pip3 install:*)",
+      "Bash(uv venv:*)",
+      "Bash(uv pip install:*)"
     ]
   }
 }
