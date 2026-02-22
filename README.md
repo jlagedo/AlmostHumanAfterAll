@@ -2,6 +2,8 @@
 
 A macOS menu bar app that delivers AI-generated music commentary when songs play in Apple Music, powered entirely by on-device Apple Intelligence. Named after [Marsilio Ficino](https://en.wikipedia.org/wiki/Marsilio_Ficino), the Renaissance philosopher who believed music was a bridge between the physical and divine.
 
+Worst case, it's the most educational toy ever built.
+
 When a track changes, Ficino fetches rich metadata (MusicKit, Genius), assembles a structured prompt, sends it to Apple's on-device 3B foundation model, and shows a floating notification with album art and its take on the song. No API calls at runtime, no subscription, no data leaving the machine.
 
 Ficino is a music obsessive who lives for the story behind the song — the failed session that produced a masterpiece, the personal feud that shaped a lyric, the borrowed chord progression that changed a genre.
