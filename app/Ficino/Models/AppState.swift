@@ -7,6 +7,10 @@ import os
 
 private let logger = Logger(subsystem: "com.ficino", category: "AppState")
 
+enum NotificationPosition: String {
+    case topRight, topLeft, bottomRight, bottomLeft
+}
+
 @MainActor
 final class AppState: ObservableObject {
     // MARK: - Published State
@@ -27,6 +31,12 @@ final class AppState: ObservableObject {
     @Published var notificationDuration: TimeInterval {
         didSet { UserDefaults.standard.set(notificationDuration, forKey: "notificationDuration") }
     }
+    @Published var notificationsEnabled: Bool {
+        didSet { UserDefaults.standard.set(notificationsEnabled, forKey: "notificationsEnabled") }
+    }
+    @Published var notificationPosition: NotificationPosition {
+        didSet { UserDefaults.standard.set(notificationPosition.rawValue, forKey: "notificationPosition") }
+    }
 
     // MARK: - Services
     private let musicListener = MusicListener()
@@ -46,6 +56,13 @@ final class AppState: ObservableObject {
         self.isPaused = defaults.bool(forKey: "isPaused")
         self.skipThreshold = defaults.object(forKey: "skipThreshold") as? TimeInterval ?? 5.0
         self.notificationDuration = defaults.object(forKey: "notificationDuration") as? TimeInterval ?? 30.0
+        self.notificationsEnabled = defaults.object(forKey: "notificationsEnabled") as? Bool ?? true
+        if let posRaw = defaults.string(forKey: "notificationPosition"),
+           let pos = NotificationPosition(rawValue: posRaw) {
+            self.notificationPosition = pos
+        } else {
+            self.notificationPosition = .topRight
+        }
 
         #if canImport(FoundationModels)
         if #available(macOS 26, *) {
@@ -193,13 +210,16 @@ final class AppState: ObservableObject {
                 self.history = await core.history()
 
                 // Send floating notification
-                notificationService.duration = notificationDuration
-                notificationService.send(
-                    track: track,
-                    comment: result.commentary,
-                    artwork: artwork
-                )
-                logger.info("Floating notification sent (duration: \(self.notificationDuration, format: .fixed(precision: 0))s)")
+                if notificationsEnabled {
+                    notificationService.duration = notificationDuration
+                    notificationService.position = notificationPosition
+                    notificationService.send(
+                        track: track,
+                        comment: result.commentary,
+                        artwork: artwork
+                    )
+                    logger.info("Floating notification sent (duration: \(self.notificationDuration, format: .fixed(precision: 0))s)")
+                }
 
             } catch is CancellationError {
                 logger.debug("Task cancelled")
@@ -256,12 +276,15 @@ final class AppState: ObservableObject {
 
                 self.history = await core.history()
 
-                notificationService.duration = notificationDuration
-                notificationService.send(
-                    track: track,
-                    comment: result.commentary,
-                    artwork: artwork
-                )
+                if notificationsEnabled {
+                    notificationService.duration = notificationDuration
+                    notificationService.position = notificationPosition
+                    notificationService.send(
+                        track: track,
+                        comment: result.commentary,
+                        artwork: artwork
+                    )
+                }
             } catch is CancellationError {
                 return
             } catch {

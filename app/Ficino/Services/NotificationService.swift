@@ -10,6 +10,14 @@ final class NotificationState {
 
 private let logger = Logger(subsystem: "com.ficino", category: "Notification")
 
+// MARK: - FicinoPanel
+
+private final class FicinoPanel: NSPanel {
+    override var canBecomeKey: Bool { false }
+}
+
+// MARK: - NotificationService
+
 @MainActor
 final class NotificationService {
     private var window: NSPanel?
@@ -17,6 +25,7 @@ final class NotificationService {
     private var notificationState: NotificationState?
 
     var duration: TimeInterval = 30.0
+    var position: NotificationPosition = .topRight
 
     func send(track: TrackInfo, comment: String, artwork: NSImage?) {
         logger.info("Showing floating notification for: \(track.name) (duration: \(self.duration, format: .fixed(precision: 0))s)")
@@ -33,6 +42,7 @@ final class NotificationService {
             comment: comment,
             artwork: artwork,
             state: state,
+            position: position,
             onDismiss: { [weak self] in self?.dismiss() }
         )
         showPanel(content)
@@ -43,13 +53,14 @@ final class NotificationService {
         let hostingController = NSHostingController(rootView: content)
         hostingController.view.frame = NSRect(x: 0, y: 0, width: 380, height: 600)
 
-        let panel = NSPanel(
+        let panel = FicinoPanel(
             contentRect: NSRect(x: 0, y: 0, width: 380, height: 600),
             styleMask: [.titled, .nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
 
+        panel.hidesOnDeactivate = false
         panel.isFloatingPanel = true
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
@@ -75,8 +86,23 @@ final class NotificationService {
         let screenFrame = screen.visibleFrame
         let maxHeight = screenFrame.height - 32
         let height = min(max(fittingSize.height, 140), min(450, maxHeight))
-        let x = screenFrame.maxX - width - 16
-        let y = screenFrame.maxY - height - 16
+
+        let x: CGFloat
+        let y: CGFloat
+        switch position {
+        case .topRight:
+            x = screenFrame.maxX - width - 16
+            y = screenFrame.maxY - height - 16
+        case .topLeft:
+            x = screenFrame.minX + 16
+            y = screenFrame.maxY - height - 16
+        case .bottomRight:
+            x = screenFrame.maxX - width - 16
+            y = screenFrame.minY + 16
+        case .bottomLeft:
+            x = screenFrame.minX + 16
+            y = screenFrame.minY + 16
+        }
 
         panel.setFrame(NSRect(x: x, y: y, width: width, height: height), display: true)
 
@@ -119,25 +145,33 @@ struct FloatingNotificationView: View {
     let comment: String
     let artwork: NSImage?
     let state: NotificationState
+    let position: NotificationPosition
     let onDismiss: () -> Void
 
-    @State private var isHovering = false
     @State private var appeared = false
     @State private var dragOffset: CGFloat = 0
 
+    private var slidesFromRight: Bool {
+        position == .topRight || position == .bottomRight
+    }
+
+    private var offscreenOffset: CGFloat {
+        slidesFromRight ? 400 : -400
+    }
+
     private var slideOffset: CGFloat {
         if state.isDismissing {
-            return 400
+            return offscreenOffset
         } else if appeared {
             return dragOffset
         } else {
-            return 400
+            return offscreenOffset
         }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            // Top row: artwork, track info, dismiss button
+            // Top row: artwork, track info
             HStack(alignment: .top, spacing: 12) {
                 // Artwork
                 Group {
@@ -169,20 +203,6 @@ struct FloatingNotificationView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
-
-                Spacer(minLength: 0)
-
-                // Dismiss button — always visible
-                Button {
-                    onDismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.primary.opacity(isHovering ? 0.8 : 0.4))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Dismiss notification")
             }
 
             // Comment at full width
@@ -196,6 +216,8 @@ struct FloatingNotificationView: View {
         .padding(16)
         .frame(width: 380)
         .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        .contentShape(Rectangle())
+        .onTapGesture { onDismiss() }
         .offset(x: slideOffset)
         .animation(.spring(duration: 0.5, bounce: 0.15), value: appeared)
         .animation(.spring(duration: 0.4, bounce: 0.1), value: state.isDismissing)
@@ -203,24 +225,31 @@ struct FloatingNotificationView: View {
         .gesture(
             DragGesture()
                 .onChanged { value in
-                    // Only allow rightward drag
-                    if value.translation.width > 0 {
-                        dragOffset = value.translation.width
+                    let translation = value.translation.width
+                    if slidesFromRight {
+                        if translation > 0 { dragOffset = translation }
+                    } else {
+                        if translation < 0 { dragOffset = translation }
                     }
                 }
                 .onEnded { value in
                     let distance = value.translation.width
                     let velocity = value.velocity.width
-                    if distance > 100 || velocity > 300 {
-                        onDismiss()
+                    if slidesFromRight {
+                        if distance > 100 || velocity > 300 {
+                            onDismiss()
+                        } else {
+                            dragOffset = 0
+                        }
                     } else {
-                        dragOffset = 0
+                        if distance < -100 || velocity < -300 {
+                            onDismiss()
+                        } else {
+                            dragOffset = 0
+                        }
                     }
                 }
         )
-        .onHover { hovering in
-            isHovering = hovering
-        }
         .onAppear {
             withAnimation(.spring(duration: 0.5, bounce: 0.15)) {
                 appeared = true

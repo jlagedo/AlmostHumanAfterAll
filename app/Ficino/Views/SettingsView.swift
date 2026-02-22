@@ -5,6 +5,13 @@ struct SettingsPopoverContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // Show notifications toggle
+            Toggle(isOn: $appState.notificationsEnabled) {
+                Text("Show Notifications")
+                    .font(.caption)
+                    .fontWeight(.medium)
+            }
+
             // Notification duration
             VStack(alignment: .leading, spacing: 4) {
                 Text("Notification Duration")
@@ -31,6 +38,23 @@ struct SettingsPopoverContent: View {
                 Text("How long the floating comment stays")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+            }
+
+            // Notification position
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Notification Position")
+                    .font(.caption)
+                    .fontWeight(.medium)
+
+                Picker("Position", selection: $appState.notificationPosition) {
+                    Text("Top Right").tag(NotificationPosition.topRight)
+                    Text("Top Left").tag(NotificationPosition.topLeft)
+                    Text("Bottom Right").tag(NotificationPosition.bottomRight)
+                    Text("Bottom Left").tag(NotificationPosition.bottomLeft)
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
             }
 
             Divider()
