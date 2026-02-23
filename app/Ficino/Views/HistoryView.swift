@@ -147,6 +147,7 @@ struct HistoryEntryView: View {
                     }
                 }
                 .opacity(isHovered ? 1 : 0)
+                .accessibilityHidden(false)
 
                 Text(entry.timestamp, style: .relative)
                     .font(.caption2)
@@ -204,5 +205,12 @@ struct HistoryEntryView: View {
         .animation(.easeOut(duration: 0.15), value: isHovered)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(entry.trackName) by \(entry.artist): \(entry.commentary)")
+        .accessibilityAction(named: entry.isFavorited ? "Unfavorite" : "Favorite") {
+            appState.toggleFavorite(id: entry.id)
+        }
+        .accessibilityAction(named: "Copy commentary") {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(entry.commentary, forType: .string)
+        }
     }
 }

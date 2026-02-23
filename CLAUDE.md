@@ -15,9 +15,9 @@ docs/         Shared reference material (Apple FM specs, prompt guides, training
 
 ## Architecture
 
-**Data flow:** Apple Music track change → `MusicListener` (DistributedNotificationCenter) → `AppState.handleTrackChange()` → `FicinoCore.process()` → `MusicContextService` fetches metadata (MusicKit + Genius in parallel, both non-fatal) → `PromptBuilder` formats into `[Section]...[End Section]` blocks → `AppleIntelligenceService` generates commentary via `LanguageModelSession` + LoRA adapter → floating `NSPanel` notification shown → entry saved to history.
+**Data flow:** Apple Music track change → `MusicListener` (DistributedNotificationCenter) → `MusicCoordinator.handleTrackChange()` → `FicinoCore.process()` → `MusicContextService` fetches metadata (MusicKit + Genius in parallel, both non-fatal) → `PromptBuilder` formats into `[Section]...[End Section]` blocks → `AppleIntelligenceService` generates commentary via `LanguageModelSession` + LoRA adapter → floating `NSPanel` notification shown → entry saved to history → `AppState` updated via callback.
 
-**Pattern:** MVVM with single `AppState` observable. Services use actor isolation for thread safety. `CommentaryService` is dependency-injected into `FicinoCore`.
+**Pattern:** MVVM with coordinator. `AppState` is the single `@StateObject` for views. `MusicCoordinator` owns all services (`MusicListener`, `FicinoCore`, `HistoryStore`, `NotificationService`) and pushes state updates to `AppState` via a `StateUpdate` enum callback. `CommentaryService` is dependency-injected into `FicinoCore`.
 
 ### App Targets
 
@@ -33,6 +33,10 @@ docs/         Shared reference material (Apple FM specs, prompt guides, training
 ### LoRA Adapter
 
 `app/ficino_music.fmadapter/` — rank 32, speculative decoding (5 tokens). Current best instruction version: `ml/prompts/fm_instruction_v18.json` (13.9/15 score, zero failure flags).
+
+### FoundationModels Session Lifecycle
+
+Apple manages model resources at the OS level — `SystemLanguageModel` and `LanguageModelSession` are lightweight and don't need to be singletons. Creating a new session per request is the intended pattern for single-turn interactions. However, `prewarm()` is **session-scoped**: the prewarmed session must be the same instance passed to `respond()`. `AppleIntelligenceService` stores the prewarmed session and consumes it in `generate()`.
 
 ## Build
 
@@ -69,7 +73,7 @@ See `ml/docs/` for detailed guides: `eval_pipeline.md`, `training_pipeline.md`, 
 
 - **macOS 26+ only.** Verify API availability on macOS — do not assume iOS availability. `SystemMusicPlayer` (MusicKit) is explicitly unavailable on macOS.
 - **Never modify `.pbxproj` or any file inside `.xcodeproj`** — Xcode 16+ synchronized folders auto-detect file changes on disk. For structural changes (targets, build settings, frameworks), use Xcode GUI.
-- **Swift 6.2** with strict concurrency. All services use actor isolation (`FicinoCore`, `MusicContextService`, `MusicKitProvider`, `GeniusProvider`, `RateLimiter` are actors; `AppState` and `NotificationService` are `@MainActor`).
+- **Swift 6.2** with strict concurrency. All services use actor isolation (`FicinoCore`, `MusicContextService`, `MusicKitProvider`, `GeniusProvider`, `MusicBrainzProvider`, `RateLimiter`, `HistoryStore` are actors; `AppState`, `MusicCoordinator`, and `NotificationService` are `@MainActor`).
 - **App sandbox enabled** with `com.apple.security.network.client` and `com.apple.developer.foundation-model-adapter` entitlements.
 - **No test suite.** MusicModel and MusicContext have test targets but only stubs. Testing is manual via build and run.
 
@@ -103,6 +107,44 @@ Genius API requires a token. Copy `app/Secrets.xcconfig.template` to `app/Secret
 ## Skills
 
 - **`iterate-prompt`** — Workflow for tuning FM instruction prompts and evaluating results. Invoke with `/iterate-prompt`.
+
+## Swift & macOS Best Practices
+
+Follow these when writing or modifying Swift code in the app.
+
+### Concurrency & Isolation
+- **Actors for shared mutable state.** Any service that manages state across async boundaries should be an `actor`. Prefer actor isolation over manual locks or `DispatchQueue`.
+- **`@MainActor` for UI-bound types only.** `AppState`, view models, and anything touching AppKit/SwiftUI goes on `@MainActor`. Everything else stays off the main thread.
+- **`async let` for parallel work.** When multiple independent async calls exist (e.g., MusicKit + Genius), launch them with `async let` and `await` together — not sequentially.
+- **Check `Task.isCancelled` at meaningful checkpoints.** Before expensive work and before updating UI state. Use `guard !Task.isCancelled else { return }` — don't ignore cancellation.
+- **Cancel stale work.** When a new operation replaces an old one (e.g., new track arrives), cancel the in-flight task first.
+- **All protocols crossing isolation boundaries must be `Sendable`.** This is enforced by Swift 6.2 strict concurrency — no exceptions.
+
+### Architecture & Design
+- **Protocol-first for service boundaries.** Define protocols (`CommentaryService`, `MusicContextProvider`) for anything that could have alternate implementations or needs testability. Inject via constructor.
+- **Fail gracefully, not fatally.** Optional data sources (metadata, artwork) should degrade — return `nil` and continue rather than propagating errors that abort the operation. Only hard-fail for truly unrecoverable conditions.
+- **Errors as enums with `LocalizedError`.** Use typed error enums (e.g., `FicinoError`) with descriptive cases. Avoid `String`-based errors or bare `NSError`.
+- **Value types by default.** Use `struct` unless you need reference semantics or actor isolation. Enums for fixed sets of cases.
+- **Keep models dumb.** Data types (`TrackInput`, `CommentaryRecord`) should be plain `Struct`/`Codable` — no business logic.
+
+### SwiftUI & AppKit
+- **Single source of truth.** One `@StateObject` / `@Observable` at the top, passed down via `@EnvironmentObject` or environment. Don't duplicate state across views.
+- **Decompose views.** Extract reusable subviews (`HistoryEntryView`, `FloatingNotificationView`) rather than building monolithic view bodies.
+- **`NSPanel` / `NSWindow` for system-level UI.** Floating notifications, menu bar extras, and overlays use AppKit windowing. Wrap SwiftUI content in `NSHostingController`.
+- **Animate with value bindings.** Use `.animation(.spring(), value: someState)` rather than implicit `.animation()` — explicit value binding prevents unexpected animation propagation.
+- **`@Published` + `didSet` for UserDefaults.** Preferences pattern: `@Published var pref: T { didSet { UserDefaults.standard.set(...) } }`.
+
+### Swift Packages & Module Boundaries
+- **One responsibility per package.** `MusicModel` = AI layer, `MusicContext` = metadata, `FicinoCore` = orchestration. Don't leak concerns across package boundaries.
+- **Dependencies flow downward.** `FicinoCore` depends on `MusicModel` + `MusicContext`. Neither `MusicModel` nor `MusicContext` depend on each other or on `FicinoCore`.
+- **Platform minimums in Package.swift.** Always set `.macOS(.v26)` (or the correct minimum). Don't omit platform constraints.
+
+### macOS-Specific
+- **Verify API availability on macOS.** Many MusicKit and system APIs differ between iOS and macOS. Always check macOS docs — don't assume iOS parity.
+- **`DistributedNotificationCenter` for system events.** macOS uses this for inter-process notifications (e.g., Apple Music track changes). This is unavailable on iOS.
+- **No `SystemMusicPlayer` on macOS.** MusicKit's `SystemMusicPlayer` is iOS-only. Use catalog search (`MusicCatalogSearchRequest`) for metadata lookups.
+- **`LSUIElement` for menu bar apps.** Set `Application is agent (UIElement)` = YES in Info.plist to hide the dock icon.
+- **App Sandbox entitlements.** Only request what you need: `com.apple.security.network.client` for outbound network, specific entitlements for framework access.
 
 ## Do NOT
 

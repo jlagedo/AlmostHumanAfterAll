@@ -9,6 +9,7 @@ import FoundationModels
 @available(macOS 26, *)
 public actor AppleIntelligenceService: CommentaryService {
     private var currentTask: Task<String, Error>?
+    private var prewarmedSession: LanguageModelSession?
     private let adapter: SystemLanguageModel.Adapter?
 
     private let systemInstructions = """
@@ -49,6 +50,7 @@ public actor AppleIntelligenceService: CommentaryService {
         let session = createSession()
         do {
             try await session.prewarm()
+            self.prewarmedSession = session
             logger.debug("Model prewarmed")
         } catch {
             logger.warning("Prewarm failed: \(error.localizedDescription)")
@@ -73,8 +75,10 @@ public actor AppleIntelligenceService: CommentaryService {
     }
 
     private func generate(prompt: String) async throws -> String {
-        let session = createSession()
+        let session = prewarmedSession ?? createSession()
+        prewarmedSession = nil
         let task = Task<String, Error> {
+            try Task.checkCancellation()
             let response = try await session.respond(to: prompt, options: GenerationOptions(temperature: 0.5))
             return response.content
         }

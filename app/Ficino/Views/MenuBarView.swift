@@ -2,7 +2,6 @@ import SwiftUI
 
 struct MenuBarView: View {
     @EnvironmentObject var appState: AppState
-    @State private var showSettings = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,7 +37,7 @@ struct MenuBarView: View {
 
                 // Settings gear
                 Button {
-                    showSettings.toggle()
+                    appState.openSettings()
                 } label: {
                     Image(systemName: "gearshape")
                         .font(.body)
@@ -46,10 +45,6 @@ struct MenuBarView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Settings")
-                .popover(isPresented: $showSettings, arrowEdge: .top) {
-                    SettingsPopoverContent()
-                        .environmentObject(appState)
-                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -80,6 +75,15 @@ struct MenuBarView: View {
             .keyboardShortcut("q")
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
+        }
+        .onAppear {
+            NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "," {
+                    appState.openSettings()
+                    return nil
+                }
+                return event
+            }
         }
         .task {
             appState.startIfNeeded()

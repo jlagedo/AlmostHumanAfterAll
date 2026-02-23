@@ -19,6 +19,8 @@ public actor MusicKitProvider {
             searchTerm = "\(artist) \(track)"
         }
 
+        try Task.checkCancellation()
+
         var request = MusicCatalogSearchRequest(term: searchTerm, types: [Song.self])
         request.limit = 25
 
@@ -28,6 +30,7 @@ public actor MusicKitProvider {
             throw MusicContextError.noResults(query: searchTerm)
         }
 
+        try Task.checkCancellation()
         return try await loadRelationships(for: song)
     }
 
@@ -36,6 +39,8 @@ public actor MusicKitProvider {
         guard !catalogID.isEmpty, catalogID.allSatisfy(\.isNumber) else {
             throw MusicContextError.invalidCatalogID(catalogID)
         }
+
+        try Task.checkCancellation()
 
         let id = MusicItemID(catalogID)
         let request = MusicCatalogResourceRequest<Song>(matching: \.id, equalTo: id)

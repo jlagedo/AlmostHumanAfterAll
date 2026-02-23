@@ -25,13 +25,16 @@ xcodebuild -project app/Ficino.xcodeproj -scheme MusicContextGenerator -derivedD
 
 ```
 Ficino/                  App target (menu bar UI)
-├── Models/                AppState, TrackInfo, CommentEntry
-├── Services/              MusicListener, NotificationService
+├── Models/                AppState, TrackInfo, PreferencesStore, CommentaryRecord+AppKit, Tips
+├── Services/              MusicCoordinator, MusicListener, NotificationService, SettingsWindowController
 └── Views/                 MenuBarView, NowPlayingView, HistoryView, SettingsView
 
 FicinoCore/              Orchestration package
-├── FicinoCore.swift       Actor: process(TrackRequest) → String
-└── Models/                TrackRequest
+├── FicinoCore.swift       Actor: process(TrackRequest) → CommentaryResult
+├── TrackGatekeeper.swift  Skip/duplicate filtering logic
+├── HistoryStore.swift     SwiftData-backed history persistence (ModelActor)
+├── withTimeout.swift      Async timeout utility
+└── Models/                TrackRequest, CommentaryResult, CommentaryRecord, FicinoError
 
 MusicModel/              AI layer package
 ├── Protocols/             CommentaryService protocol
@@ -41,28 +44,30 @@ MusicModel/              AI layer package
 MusicContext/            Metadata providers package
 ├── MusicContextService    Coordinates MusicKit + Genius lookups (parallel, both non-fatal)
 ├── PromptBuilder          Assembles metadata into [Section]...[End Section] blocks
-├── Providers/             MusicKitProvider, GeniusProvider
-├── Models/                API response types, error types (MusicBrains.swift)
+├── Providers/             MusicKitProvider, GeniusProvider, MusicBrainzProvider
+├── Models/                SongMetadata, MetadataResult, MusicBrainsData, API response types
 └── Networking/            RateLimiter
 
 MusicContextGenerator/   Standalone testing app (GUI + CLI mode)
 
-FMPromptRunner/          CLI tool for ML eval pipeline (reads JSON prompts on stdin, runs FoundationModels)
+FMPromptRunner/          CLI tool for ML eval pipeline (reads JSONL file, runs FoundationModels)
 
 ficino_music.fmadapter/  LoRA adapter metadata (rank 32, speculative decoding: 5 tokens)
 ```
 
 ## Architecture
 
-**Pattern:** MVVM with a single `AppState` observable object coordinating services. Views bind to `@StateObject AppState`.
+**Pattern:** MVVM with coordinator. `AppState` is the single `@StateObject` for views. `MusicCoordinator` (`@MainActor`) owns all services and pushes state updates to `AppState` via a `StateUpdate` enum callback. Views never interact with services directly — they call methods on `AppState`, which delegates to `MusicCoordinator`.
 
-**Key flow:** MusicListener detects track change via `DistributedNotificationCenter` → `AppState.handleTrackChange()` → `FicinoCore.process()` (MusicContextService fetches MusicKit + Genius in parallel → PromptBuilder formats into section blocks → CommentaryService generates commentary) → artwork loaded from URL → result saved to history → floating NSPanel notification shown.
+**Key flow:** `MusicListener` detects track change via `DistributedNotificationCenter` → `MusicCoordinator.handleTrackChange()` → `TrackGatekeeper` filters duplicates/skips → `FicinoCore.process()` (prewarm + metadata fetch in parallel → PromptBuilder formats into section blocks → CommentaryService generates commentary → saved to HistoryStore) → artwork fetched via MusicKit catalog search → `AppState` updated via callback → floating NSPanel notification shown.
 
 ### FicinoCore
 
-The `FicinoCore` actor is the single entry point for the app:
-- Takes a `TrackRequest` (notification data) and returns a `String` (commentary)
-- Internally: MusicContextService fetches metadata → `CommentaryService` generates commentary
+The `FicinoCore` actor is the orchestration entry point:
+- Takes a `TrackRequest` and returns a `CommentaryResult` (commentary + metadata)
+- Owns `TrackGatekeeper` for skip/duplicate filtering, `HistoryStore` for SwiftData persistence
+- Prewarms the AI model in parallel with metadata fetch for lower latency
+- Metadata fetch has a 15s timeout; commentary generation has a 30s timeout
 - `CommentaryService` is dependency-injected — app passes in `AppleIntelligenceService`
 - Both MusicKit and Genius lookups are non-fatal — commentary still generates with basic track info
 
@@ -74,21 +79,22 @@ The `FicinoCore` actor is the single entry point for the app:
 
 ### MusicContext
 
-Two metadata providers coordinated by `MusicContextService`:
+Three metadata providers coordinated by `MusicContextService`:
 - **MusicKitProvider** — Apple MusicKit catalog search with smart matching (exact → fuzzy → fallback). Full relationships (albums, artists, composers, genres, audio variants).
 - **GeniusProvider** — Genius API with rate limiting (5 req/sec). Songwriting credits, producer info, song descriptions, relationship data (samples, covers, interpolates).
+- **MusicBrainzProvider** — MusicBrainz API with rate limiting (1 req/sec). Tags, genres, ISRC, community rating, release info, record labels. Used by MusicContextGenerator for batch data extraction.
 
-`PromptBuilder` formats fetched metadata into `[Section]...[End Section]` blocks consumed by the model's dual-stage pipeline (extract facts → write commentary).
+`PromptBuilder` formats fetched metadata into `[Section]...[End Section]` blocks (Song, TrackDescription, ArtistBio, Album Editorial, Artist Editorial, Samples Used, Sampled By).
 
-**MusicContextGenerator** can run as GUI or CLI: `-p mk|g <Artist> <Album> <Track> [DurationMs]` or `-p mk --id <CatalogID>`.
+**MusicContextGenerator** can run as GUI or CLI: `-p mk|g|mb <Artist> <Album> <Track>`, `-p mk --id <CatalogID>`, `-p mk --playlist <Name>`, `-p mk --charts`, or `-ce <csv> [--skip N]` for batch context extraction.
 
 ### FMPromptRunner
 
-CLI tool used by the ML eval pipeline (`ml/eval/run_model.sh`). Reads JSON prompts from stdin, runs each through the on-device `FoundationModels` framework, and writes JSON results to stdout. Part of the Xcode project (not a Swift package).
+CLI tool used by the ML eval pipeline (`ml/eval/run_model.sh`). Takes three file arguments: `<prompts.jsonl> <instructions.json> <output.jsonl>`. Supports `-l N` (limit) and `-t TEMP` (temperature) flags. Loads the LoRA adapter from bundle if present. Part of the Xcode project (not a Swift package).
 
 ### Notifications
 
-Custom floating `NSPanel` windows (not system UNUserNotificationCenter), hosted with SwiftUI content, drag-to-dismiss, and auto-dismissed after a configurable duration. Avoids system permission prompts, full control over styling/positioning.
+Custom floating `NSPanel` windows (not system UNUserNotificationCenter), hosted with SwiftUI content via `NSHostingController`. Glass effect background (`.glassEffect(.regular)`), configurable position (4 corners), slide-in/out animations, drag-to-dismiss gesture, tap-to-dismiss, and auto-dismissed after a configurable duration. Avoids system permission prompts, full control over styling/positioning.
 
 ## Xcode Project Rules
 
@@ -109,9 +115,11 @@ Genius API requires a token. Copy `Secrets.xcconfig.template` to `Secrets.xcconf
 - `FicinoApp.swift` is the `@main` entry using `MenuBarExtra` scene API
 - MusicKit authorization requested at startup for catalog search
 - Album artwork from MusicKit catalog search (URL-based, loaded via URLSession)
-- History capped at 50 entries with JPEG-compressed thumbnails (48pt, 0.7 quality)
+- History capped at 200 entries (SwiftData via `HistoryStore` actor) with JPEG-compressed thumbnails (48pt, 0.7 quality). Capacity enforcement evicts oldest non-favorited entries.
 - System prompt and personality are defined in the ML workspace instruction files (`ml/prompts/fm_instruction_v*.json`), shipped via the LoRA adapter
-- **Preferences** via `UserDefaults`: skip threshold, notification duration
+- **Preferences** via `UserDefaults` (`PreferencesStore`): `isPaused`, `skipThreshold`, `notificationDuration`, `notificationsEnabled`, `notificationPosition` (topRight/topLeft/bottomRight/bottomLeft)
 - Skip threshold: only generates commentary for tracks played longer than threshold
+- `TrackGatekeeper` (struct in FicinoCore) handles duplicate detection and skip threshold logic
 - All services use **actor isolation** for thread safety
-- `AppState` and `NotificationService` are `@MainActor`-isolated
+- `AppState`, `MusicCoordinator`, and `NotificationService` are `@MainActor`-isolated
+- `SettingsWindowController` manages a standalone `NSWindow` for settings, toggling activation policy between `.regular` and `.accessory`

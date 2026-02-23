@@ -21,8 +21,11 @@ private final class FicinoPanel: NSPanel {
 
 @MainActor
 final class NotificationService {
+    private static let dismissAnimationDuration: UInt64 = 400_000_000 // 0.4s, matches .spring(duration: 0.4)
+
     private var window: NSPanel?
     private var dismissTask: Task<Void, Never>?
+    private var teardownTask: Task<Void, Never>?
     private var notificationState: NotificationState?
 
     var duration: TimeInterval = 30.0
@@ -31,9 +34,16 @@ final class NotificationService {
     func send(track: TrackInfo, comment: String, artwork: NSImage?) {
         logger.info("Showing floating notification for: \(track.name) (duration: \(self.duration, format: .fixed(precision: 0))s)")
 
-        // Dismiss old notification before creating new state,
-        // otherwise dismiss() would mark the new state as isDismissing
-        dismiss()
+        // Cancel any pending teardown and immediately remove old panel
+        teardownTask?.cancel()
+        teardownTask = nil
+        dismissTask?.cancel()
+        dismissTask = nil
+        if let panel = window {
+            panel.orderOut(nil)
+            window = nil
+        }
+        notificationState = nil
 
         let state = NotificationState()
         self.notificationState = state
@@ -132,8 +142,9 @@ final class NotificationService {
         notificationState = nil
 
         // Delay panel teardown to let the slide-out animation complete
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 400_000_000)
+        teardownTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: Self.dismissAnimationDuration)
+            guard !Task.isCancelled else { return }
             panel.orderOut(nil)
         }
     }

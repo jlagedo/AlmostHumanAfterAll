@@ -29,6 +29,7 @@ public actor GeniusProvider {
         self.apiMode = mode
         self.rateLimiter = RateLimiter(requestsPerSecond: requestsPerSecond)
         let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 10
         config.httpAdditionalHeaders = [
             "Accept": "application/json",
         ]
@@ -40,6 +41,7 @@ public actor GeniusProvider {
         self.apiMode = mode
         self.rateLimiter = RateLimiter(requestsPerSecond: requestsPerSecond)
         let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 10
         config.httpAdditionalHeaders = [
             "Accept": "application/json",
         ]
@@ -49,6 +51,7 @@ public actor GeniusProvider {
     // MARK: - Public API
 
     public func fetchContext(artist: String, track: String, album: String? = nil) async throws -> MusicContextData {
+        try Task.checkCancellation()
         let songResult = try await searchWithFallbacks(artist: artist, track: track)
 
         // Fetch full song detail
@@ -107,6 +110,7 @@ public actor GeniusProvider {
         }
 
         try await rateLimiter.wait()
+        try Task.checkCancellation()
 
         var request = URLRequest(url: url)
         if let accessToken, apiMode == .authenticated {
@@ -168,6 +172,7 @@ public actor GeniusProvider {
         }
 
         for query in queries {
+            try Task.checkCancellation()
             let response = try await searchSong(query: query)
             let songs = response.response.hits
                 .filter { $0.type == "song" }

@@ -19,6 +19,7 @@ public actor MusicContextService: MusicContextProvider {
         // MusicKit + Genius in parallel (both non-fatal)
         async let songResult: Song? = {
             do {
+                try Task.checkCancellation()
                 let result = try await musicKit.searchSong(artist: artist, track: name, album: album)
                 logger.info("MusicKit match: \"\(result.title)\" by \(result.artistName)")
                 return result
@@ -34,6 +35,7 @@ public actor MusicContextService: MusicContextProvider {
                 return nil
             }
             do {
+                try Task.checkCancellation()
                 logger.info("Genius: searching \"\(name)\" by \(artist)")
                 let data = try await genius.fetchContext(artist: artist, track: name, album: album)
                 logger.info("Genius match: \"\(data.track.title)\" by \(data.artist.name)")

@@ -42,14 +42,9 @@ struct TrackInfo: Identifiable, Equatable {
         return String(format: "%d:%02d", minutes, seconds)
     }
 
-    var asTrackRequest: TrackRequest {
-        TrackRequest(
-            name: name,
-            artist: artist,
-            album: album,
-            genre: genre,
-            durationMs: Int(totalTime * 1000),
-            persistentID: id
-        )
-    }
+}
+
+extension TrackInfo: TrackRequestConvertible {
+    var durationMs: Int { Int(totalTime * 1000) }
+    var persistentID: String { id }
 }

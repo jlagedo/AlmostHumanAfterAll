@@ -1,6 +1,9 @@
 import Foundation
 import MusicModel
 import MusicContext
+import os
+
+private let logger = Logger(subsystem: "com.ficino", category: "FicinoCore")
 
 public actor FicinoCore {
     private let commentaryService: any CommentaryService
@@ -70,10 +73,19 @@ public actor FicinoCore {
 
         let task = Task<CommentaryResult, Error> {
             async let warmup: Void = service.prewarm()
-            let metadata = await context.fetch(
-                name: request.name, artist: request.artist,
-                album: request.album, genre: request.genre
-            )
+
+            let metadata: MetadataResult
+            do {
+                metadata = try await withTimeout(.seconds(15)) { [context] in
+                    await context.fetch(
+                        name: request.name, artist: request.artist,
+                        album: request.album, genre: request.genre
+                    )
+                }
+            } catch is TimeoutError {
+                logger.warning("Metadata fetch timed out, proceeding with basic info")
+                metadata = MetadataResult(song: nil, geniusData: nil, appleMusicURL: nil)
+            }
             _ = await warmup
 
             try Task.checkCancellation()
@@ -92,7 +104,11 @@ public actor FicinoCore {
 
             let commentary: String
             do {
-                commentary = try await service.getCommentary(for: trackInput)
+                commentary = try await withTimeout(.seconds(30)) { [service] in
+                    try await service.getCommentary(for: trackInput)
+                }
+            } catch is TimeoutError {
+                throw FicinoError.aiUnavailable("Commentary generation timed out. Try again.")
             } catch is CancellationError {
                 throw FicinoError.cancelled
             } catch let error as AppleIntelligenceError {
