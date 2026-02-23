@@ -1,34 +1,49 @@
 import Foundation
-import MusicKit
 import MusicModel
 import MusicContext
-import SwiftData
 
 public actor FicinoCore {
     private let commentaryService: any CommentaryService
-    private let musicContext: MusicContextService
-    private let historyStore: HistoryStore
+    private let musicContext: any MusicContextProvider
+    public let historyStore: HistoryStore
     private var currentTask: Task<CommentaryResult, Error>?
+    private var gatekeeper = TrackGatekeeper()
 
     public init(
         commentaryService: any CommentaryService,
-        geniusAccessToken: String? = nil,
-        historyCapacity: Int = 200
-    ) throws {
+        musicContext: any MusicContextProvider,
+        historyStore: HistoryStore
+    ) {
         self.commentaryService = commentaryService
-        self.musicContext = MusicContextService(geniusAccessToken: geniusAccessToken)
-        self.historyStore = try HistoryStore(capacity: historyCapacity)
+        self.musicContext = musicContext
+        self.historyStore = historyStore
     }
 
     /// Process a track change: fetch context, generate commentary, save to history.
-    public func process(_ request: TrackRequest, thumbnailData: Data? = nil) async throws -> CommentaryResult {
+    public func process(_ request: TrackRequest) async throws -> CommentaryResult {
         currentTask?.cancel()
-        return try await runCommentary(request, thumbnailData: thumbnailData, updateCurrentTask: true)
+        return try await runCommentary(request, updateCurrentTask: true)
     }
 
     /// Regenerate commentary for a track without cancelling in-flight work.
-    public func regenerate(_ request: TrackRequest, thumbnailData: Data? = nil) async throws -> CommentaryResult {
-        try await runCommentary(request, thumbnailData: thumbnailData, updateCurrentTask: false)
+    public func regenerate(_ request: TrackRequest) async throws -> CommentaryResult {
+        try await runCommentary(request, updateCurrentTask: false)
+    }
+
+    /// Evaluate whether a track change should trigger commentary.
+    public func shouldProcess(
+        trackID: String, playerState: String,
+        isPaused: Bool, skipThreshold: TimeInterval
+    ) -> TrackGatekeeper.Decision {
+        let config = TrackGatekeeper.Configuration(
+            isPaused: isPaused,
+            skipThreshold: skipThreshold
+        )
+        return gatekeeper.evaluate(
+            trackID: trackID,
+            playerState: playerState,
+            configuration: config
+        )
     }
 
     /// Cancel any in-flight processing.
@@ -39,57 +54,14 @@ public actor FicinoCore {
     }
 
     /// Request MusicKit authorization.
-    public static func requestMusicKitAuthorization() async -> MusicAuthorization.Status {
-        await MusicContextService.requestAuthorization()
-    }
-
-    // MARK: - History
-
-    public func history() async -> [CommentaryRecord] {
-        await historyStore.getAll()
-    }
-
-    public func historyRecord(id: UUID) async -> CommentaryRecord? {
-        await historyStore.getRecord(id: id)
-    }
-
-    public func searchHistory(query: String) async -> [CommentaryRecord] {
-        await historyStore.search(query: query)
-    }
-
-    public func toggleFavorite(id: UUID) async -> Bool? {
-        await historyStore.toggleFavorite(id: id)
-    }
-
-    public func deleteHistoryRecord(id: UUID) async {
-        await historyStore.delete(id: id)
-    }
-
-    public func favorites() async -> [CommentaryRecord] {
-        await historyStore.favorites()
-    }
-
-    public func updateThumbnail(id: UUID, data: Data) async {
-        await historyStore.updateThumbnail(id: id, data: data)
-    }
-
-    public func shareText(for record: CommentaryRecord) -> String {
-        var text = "\(record.trackName) by \(record.artist)"
-        if !record.album.isEmpty {
-            text += " (\(record.album))"
-        }
-        text += "\n\n\(record.commentary)"
-        if let url = record.appleMusicURL {
-            text += "\n\n\(url.absoluteString)"
-        }
-        return text
+    public static func requestMusicKitAuthorization() async -> Bool {
+        await MusicContextService.isAuthorized()
     }
 
     // MARK: - Private
 
     private func runCommentary(
         _ request: TrackRequest,
-        thumbnailData: Data?,
         updateCurrentTask: Bool
     ) async throws -> CommentaryResult {
         let service = commentaryService
@@ -98,7 +70,7 @@ public actor FicinoCore {
 
         let task = Task<CommentaryResult, Error> {
             async let warmup: Void = service.prewarm()
-            let fetchResult = await context.fetch(
+            let metadata = await context.fetch(
                 name: request.name, artist: request.artist,
                 album: request.album, genre: request.genre
             )
@@ -106,13 +78,30 @@ public actor FicinoCore {
 
             try Task.checkCancellation()
 
+            let sections = PromptBuilder.build(
+                name: request.name, artist: request.artist,
+                album: request.album, genre: request.genre,
+                song: metadata.song, geniusData: metadata.geniusData
+            )
+
             let trackInput = TrackInput(
                 name: request.name, artist: request.artist,
                 album: request.album, genre: request.genre,
-                durationString: "0:00", context: fetchResult.sections
+                durationString: "0:00", context: sections
             )
 
-            let commentary = try await service.getCommentary(for: trackInput)
+            let commentary: String
+            do {
+                commentary = try await service.getCommentary(for: trackInput)
+            } catch is CancellationError {
+                throw FicinoError.cancelled
+            } catch let error as AppleIntelligenceError {
+                throw FicinoError.aiUnavailable(error.localizedDescription)
+            }
+
+            guard !commentary.isEmpty else {
+                throw FicinoError.emptyResponse
+            }
 
             let id = UUID()
             let record = CommentaryRecord(
@@ -123,17 +112,17 @@ public actor FicinoCore {
                 genre: request.genre,
                 commentary: commentary,
                 timestamp: Date(),
-                appleMusicURL: fetchResult.appleMusicURL,
+                appleMusicURL: metadata.appleMusicURL,
                 persistentID: request.persistentID,
                 isFavorited: false,
-                thumbnailData: thumbnailData
+                thumbnailData: nil
             )
             await store.save(record)
 
             return CommentaryResult(
                 id: id,
                 commentary: commentary,
-                appleMusicURL: fetchResult.appleMusicURL,
+                appleMusicURL: metadata.appleMusicURL,
                 trackName: request.name,
                 artist: request.artist,
                 album: request.album,

@@ -40,4 +40,16 @@ public struct CommentaryRecord: Codable, Sendable, Identifiable {
         self.isFavorited = isFavorited
         self.thumbnailData = thumbnailData
     }
+
+    public var shareText: String {
+        var text = "\(trackName) by \(artist)"
+        if !album.isEmpty {
+            text += " (\(album))"
+        }
+        text += "\n\n\(commentary)"
+        if let url = appleMusicURL {
+            text += "\n\n\(url.absoluteString)"
+        }
+        return text
+    }
 }

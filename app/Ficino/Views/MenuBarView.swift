@@ -27,14 +27,14 @@ struct MenuBarView: View {
 
                 // Pause toggle
                 Button {
-                    appState.isPaused.toggle()
+                    appState.preferences.isPaused.toggle()
                 } label: {
-                    Image(systemName: appState.isPaused ? "pause.circle.fill" : "pause.circle")
+                    Image(systemName: appState.preferences.isPaused ? "pause.circle.fill" : "pause.circle")
                         .font(.body)
-                        .foregroundStyle(appState.isPaused ? .orange : .secondary)
+                        .foregroundStyle(appState.preferences.isPaused ? .orange : .secondary)
                 }
                 .buttonStyle(.plain)
-                .help(appState.isPaused ? "Resume" : "Pause")
+                .help(appState.preferences.isPaused ? "Resume" : "Pause")
 
                 // Settings gear
                 Button {

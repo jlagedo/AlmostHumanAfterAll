@@ -4,7 +4,7 @@ import os
 
 private let logger = Logger(subsystem: "com.ficino", category: "MusicContext")
 
-public actor MusicContextService {
+public actor MusicContextService: MusicContextProvider {
     private let musicKit: MusicKitProvider
     private let genius: GeniusProvider?
 
@@ -13,9 +13,9 @@ public actor MusicContextService {
         self.genius = geniusAccessToken.map { GeniusProvider(accessToken: $0) }
     }
 
-    /// Fetch metadata from MusicKit + Genius in parallel, format into v17 section blocks.
-    /// Always returns at least a `[Song]` section — both lookups are failable.
-    public func fetch(name: String, artist: String, album: String, genre: String) async -> FetchResult {
+    /// Fetch metadata from MusicKit + Genius in parallel.
+    /// Both lookups are non-fatal — returns whatever data was available.
+    public func fetch(name: String, artist: String, album: String, genre: String) async -> MetadataResult {
         // MusicKit + Genius in parallel (both non-fatal)
         async let songResult: Song? = {
             do {
@@ -47,17 +47,60 @@ public actor MusicContextService {
         let song = await songResult
         let geniusData = await geniusResult
 
-        let sections = PromptBuilder.build(
-            name: name, artist: artist, album: album, genre: genre,
-            song: song, geniusData: geniusData
+        return MetadataResult(
+            song: song.map { Self.mapSongMetadata($0) },
+            geniusData: geniusData,
+            appleMusicURL: song?.url
         )
-
-        logger.debug("Built sections (\(sections.count) chars):\n\(sections)")
-        return FetchResult(sections: sections, appleMusicURL: song?.url)
     }
 
     /// Request MusicKit authorization.
     public static func requestAuthorization() async -> MusicAuthorization.Status {
         await MusicKitProvider.authorize()
+    }
+
+    /// Whether MusicKit authorization has been granted.
+    public static func isAuthorized() async -> Bool {
+        await requestAuthorization() == .authorized
+    }
+
+    // MARK: - Private
+
+    private static func mapSongMetadata(_ song: Song) -> SongMetadata {
+        // Extract primary genres (mid-level: has parent but parent has no parent)
+        var genres: [String] = []
+        if let songGenres = song.genres, !songGenres.isEmpty {
+            let primary = songGenres
+                .filter { $0.parent != nil && $0.parent?.parent == nil }
+                .map(\.name)
+            if !primary.isEmpty {
+                genres = primary
+            }
+        }
+        if genres.isEmpty {
+            genres = song.genreNames.filter { $0 != "Music" }
+        }
+
+        // Extract editorial notes
+        let albumEditorial: String? = {
+            guard let album = song.albums?.first, let notes = album.editorialNotes else { return nil }
+            if let short = notes.short, !short.isEmpty { return short }
+            if let standard = notes.standard, !standard.isEmpty { return standard }
+            return nil
+        }()
+
+        let artistEditorial: String? = {
+            guard let artist = song.artists?.first, let notes = artist.editorialNotes else { return nil }
+            if let short = notes.short, !short.isEmpty { return short }
+            if let standard = notes.standard, !standard.isEmpty { return standard }
+            return nil
+        }()
+
+        return SongMetadata(
+            releaseDate: song.releaseDate,
+            genres: genres,
+            albumEditorialNotes: albumEditorial,
+            artistEditorialNotes: artistEditorial
+        )
     }
 }

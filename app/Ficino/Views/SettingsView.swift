@@ -6,7 +6,7 @@ struct SettingsPopoverContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Show notifications toggle
-            Toggle(isOn: $appState.notificationsEnabled) {
+            Toggle(isOn: $appState.preferences.notificationsEnabled) {
                 Text("Show Notifications")
                     .font(.caption)
                     .fontWeight(.medium)
@@ -20,16 +20,16 @@ struct SettingsPopoverContent: View {
 
                 HStack {
                     Slider(
-                        value: $appState.notificationDuration,
+                        value: $appState.preferences.notificationDuration,
                         in: 3...30,
                         step: 1
                     )
                     .frame(width: 150)
                     .accessibilityLabel("Notification duration")
-                    .accessibilityValue("\(Int(appState.notificationDuration)) seconds")
+                    .accessibilityValue("\(Int(appState.preferences.notificationDuration)) seconds")
                     .accessibilityHint("How long the floating comment stays on screen")
 
-                    Text("\(Int(appState.notificationDuration))s")
+                    Text("\(Int(appState.preferences.notificationDuration))s")
                         .font(.caption)
                         .monospacedDigit()
                         .frame(width: 30, alignment: .trailing)
@@ -46,7 +46,7 @@ struct SettingsPopoverContent: View {
                     .font(.caption)
                     .fontWeight(.medium)
 
-                Picker("Position", selection: $appState.notificationPosition) {
+                Picker("Position", selection: $appState.preferences.notificationPosition) {
                     Text("Top Right").tag(NotificationPosition.topRight)
                     Text("Top Left").tag(NotificationPosition.topLeft)
                     Text("Bottom Right").tag(NotificationPosition.bottomRight)
@@ -67,16 +67,16 @@ struct SettingsPopoverContent: View {
 
                 HStack {
                     Slider(
-                        value: $appState.skipThreshold,
+                        value: $appState.preferences.skipThreshold,
                         in: 0...30,
                         step: 1
                     )
                     .frame(width: 150)
                     .accessibilityLabel("Skip threshold")
-                    .accessibilityValue("\(Int(appState.skipThreshold)) seconds")
+                    .accessibilityValue("\(Int(appState.preferences.skipThreshold)) seconds")
                     .accessibilityHint("Tracks played less than this duration are ignored")
 
-                    Text("\(Int(appState.skipThreshold))s")
+                    Text("\(Int(appState.preferences.skipThreshold))s")
                         .font(.caption)
                         .monospacedDigit()
                         .frame(width: 30, alignment: .trailing)

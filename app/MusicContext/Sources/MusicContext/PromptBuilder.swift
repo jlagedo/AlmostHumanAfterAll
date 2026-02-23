@@ -1,15 +1,14 @@
 import Foundation
-import MusicKit
 
-struct PromptBuilder {
+public struct PromptBuilder {
 
-    // MARK: - Public
+    // MARK: - Build
 
     /// Build v17 `[Section]...[End Section]` prompt from MusicKit + Genius data.
     /// Always returns at least a `[Song]` block.
-    static func build(
+    public static func build(
         name: String, artist: String, album: String, genre: String,
-        song: Song?, geniusData: MusicContextData?
+        song: SongMetadata?, geniusData: MusicContextData?
     ) -> String {
         var sections: [String] = []
 
@@ -30,7 +29,7 @@ struct PromptBuilder {
         }
 
         // [Album Editorial] — MusicKit album editorial notes
-        if let albumEditorial = albumEditorialNotes(from: song) {
+        if let albumEditorial = song?.albumEditorialNotes {
             let cleaned = stripHTML(albumEditorial)
             if !isCTA(cleaned) {
                 sections.append("[Album Editorial]\n\(cleaned)\n[End Album Editorial]")
@@ -38,7 +37,7 @@ struct PromptBuilder {
         }
 
         // [Artist Editorial] — MusicKit artist editorial notes
-        if let artistEditorial = artistEditorialNotes(from: song) {
+        if let artistEditorial = song?.artistEditorialNotes {
             let cleaned = stripHTML(artistEditorial)
             if !isCTA(cleaned) {
                 sections.append("[Artist Editorial]\n\(cleaned)\n[End Artist Editorial]")
@@ -62,12 +61,19 @@ struct PromptBuilder {
 
     private static func buildSongSection(
         name: String, artist: String, album: String,
-        genre: String, song: Song?
+        genre: String, song: SongMetadata?
     ) -> String {
         var parts = [name, artist, album]
 
-        // Genres from MusicKit (filter "Music" root)
-        let genres = extractGenres(from: song, fallbackGenre: genre)
+        // Genres from metadata (already filtered) or fallback
+        let genres: [String]
+        if let songGenres = song?.genres, !songGenres.isEmpty {
+            genres = songGenres
+        } else if !genre.isEmpty {
+            genres = [genre]
+        } else {
+            genres = []
+        }
         if !genres.isEmpty {
             parts.append("Genre: \(genres.joined(separator: ", "))")
         }
@@ -80,46 +86,6 @@ struct PromptBuilder {
         }
 
         return "[Song]\n\(parts.joined(separator: "\n"))\n[End Song]"
-    }
-
-    private static func extractGenres(from song: Song?, fallbackGenre: String) -> [String] {
-        if let genres = song?.genres, !genres.isEmpty {
-            let primary = genres
-                .filter { $0.parent != nil && $0.parent?.parent == nil }
-                .map(\.name)
-            if !primary.isEmpty { return primary }
-        }
-
-        if let song, !song.genreNames.isEmpty {
-            let filtered = song.genreNames.filter { $0 != "Music" }
-            if !filtered.isEmpty { return filtered }
-        }
-
-        if !fallbackGenre.isEmpty {
-            return [fallbackGenre]
-        }
-
-        return []
-    }
-
-    // MARK: - MusicKit Editorial Extraction
-
-    private static func albumEditorialNotes(from song: Song?) -> String? {
-        guard let album = song?.albums?.first else { return nil }
-        if let notes = album.editorialNotes {
-            if let short = notes.short, !short.isEmpty { return short }
-            if let standard = notes.standard, !standard.isEmpty { return standard }
-        }
-        return nil
-    }
-
-    private static func artistEditorialNotes(from song: Song?) -> String? {
-        guard let artist = song?.artists?.first else { return nil }
-        if let notes = artist.editorialNotes {
-            if let short = notes.short, !short.isEmpty { return short }
-            if let standard = notes.standard, !standard.isEmpty { return standard }
-        }
-        return nil
     }
 
     // MARK: - Text Cleaning

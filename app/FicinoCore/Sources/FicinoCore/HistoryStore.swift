@@ -1,5 +1,8 @@
 import Foundation
 import SwiftData
+import os
+
+private let logger = Logger(subsystem: "com.ficino", category: "HistoryStore")
 
 // MARK: - HistoryEntry (@Model, internal)
 
@@ -55,6 +58,8 @@ public actor HistoryStore: ModelActor {
     public nonisolated let modelContainer: ModelContainer
 
     private let capacity: Int
+    public nonisolated let updates: AsyncStream<[CommentaryRecord]>
+    private nonisolated let continuation: AsyncStream<[CommentaryRecord]>.Continuation
 
     public var modelContext: ModelContext {
         modelExecutor.modelContext
@@ -62,6 +67,9 @@ public actor HistoryStore: ModelActor {
 
     public init(capacity: Int = 200) throws {
         self.capacity = capacity
+        let (stream, continuation) = AsyncStream.makeStream(of: [CommentaryRecord].self)
+        self.updates = stream
+        self.continuation = continuation
 
         let schema = Schema([HistoryEntry.self])
 
@@ -81,6 +89,10 @@ public actor HistoryStore: ModelActor {
         let context = ModelContext(container)
         context.autosaveEnabled = true
         self.modelExecutor = DefaultSerialModelExecutor(modelContext: context)
+    }
+
+    private func emitUpdate() {
+        continuation.yield(getAll())
     }
 
     // MARK: - Public API
@@ -107,10 +119,15 @@ public actor HistoryStore: ModelActor {
                 }
             }
         } catch {
-            // Capacity enforcement failed — entry is still saved
+            logger.error("Capacity enforcement failed: \(error.localizedDescription)")
         }
 
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            logger.error("Failed to save history entry: \(error.localizedDescription)")
+        }
+        emitUpdate()
     }
 
     public func getAll() -> [CommentaryRecord] {
@@ -173,7 +190,12 @@ public actor HistoryStore: ModelActor {
         do {
             guard let entry = try modelContext.fetch(descriptor).first else { return nil }
             entry.isFavorited.toggle()
-            try? modelContext.save()
+            do {
+                try modelContext.save()
+            } catch {
+                logger.error("Failed to save favorite toggle: \(error.localizedDescription)")
+            }
+            emitUpdate()
             return entry.isFavorited
         } catch {
             return nil
@@ -188,9 +210,14 @@ public actor HistoryStore: ModelActor {
         do {
             guard let entry = try modelContext.fetch(descriptor).first else { return }
             modelContext.delete(entry)
-            try? modelContext.save()
+            do {
+                try modelContext.save()
+            } catch {
+                logger.error("Failed to save after delete: \(error.localizedDescription)")
+            }
+            emitUpdate()
         } catch {
-            // Delete failed silently
+            logger.error("Failed to fetch entry for deletion: \(error.localizedDescription)")
         }
     }
 
@@ -202,9 +229,14 @@ public actor HistoryStore: ModelActor {
         do {
             guard let entry = try modelContext.fetch(descriptor).first else { return }
             entry.thumbnailData = data
-            try? modelContext.save()
+            do {
+                try modelContext.save()
+            } catch {
+                logger.error("Failed to save thumbnail update: \(error.localizedDescription)")
+            }
+            emitUpdate()
         } catch {
-            // Update failed silently
+            logger.error("Failed to fetch entry for thumbnail update: \(error.localizedDescription)")
         }
     }
 }
