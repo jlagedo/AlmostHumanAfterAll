@@ -4,7 +4,7 @@ A macOS menu bar app that delivers AI-generated music commentary when songs play
 
 Worst case, it's the most educational toy ever built.
 
-When a track changes, Ficino fetches rich metadata (MusicKit, Genius), assembles a structured prompt, sends it to Apple's on-device 3B foundation model, and shows a floating notification with album art and its take on the song. No API calls at runtime, no subscription, no data leaving the machine.
+When a track changes, Ficino fetches rich metadata (MusicKit, Genius), assembles a structured prompt, sends it to Apple's on-device 3B foundation model, and shows a floating notification with album art and its take on the song. It also scrobbles to Last.fm with play-time tracking and syncs favorites with loved tracks. No AI API calls at runtime, no subscription, no data leaving the machine (except optional Last.fm scrobbling).
 
 Ficino is a music obsessive who lives for the story behind the song — the failed session that produced a masterpiece, the personal feud that shaped a lyric, the borrowed chord progression that changed a genre.
 
@@ -16,6 +16,7 @@ app/                    macOS menu bar app (Swift / Xcode)
 ├── FicinoCore/             Orchestration: track change → metadata fetch → prompt → commentary
 ├── MusicModel/             AI layer (CommentaryService protocol, Apple Intelligence backend)
 ├── MusicContext/           Metadata providers (MusicKit, Genius, MusicBrainz)
+├── MusicTracker/           Last.fm integration (scrobbling, loved tracks, auth)
 ├── MusicContextGenerator/  Standalone GUI/CLI for testing metadata providers
 ├── FMPromptRunner/         Headless CLI — runs prompts through the on-device model for eval
 └── Ficino.xcodeproj
@@ -39,9 +40,10 @@ On every Apple Music track change:
 2. **Enrich** — MusicKit and Genius are queried in parallel for genres, editorial notes, artist bios, sample/interpolation data
 3. **Build prompt** — metadata is assembled into structured `[Section]...[End Section]` blocks
 4. **Generate** — the prompt is sent to Apple's on-device `FoundationModels` 3B model via `LanguageModelSession`
-5. **Display** — a custom floating `NSPanel` slides in from the top-right with album art and commentary
+5. **Display** — a custom floating `NSPanel` slides in with album art and commentary
+6. **Scrobble** — play time is tracked; after 50% or 240s the track is scrobbled to Last.fm
 
-The app is a pure menu bar app (no Dock icon). It stores a history of the last 50 commentaries with compressed thumbnails.
+The app is a pure menu bar app (no Dock icon). It stores a history of the last 200 commentaries with compressed thumbnails. Favorites sync bidirectionally with Last.fm loved tracks.
 
 ### The ML workspace
 
@@ -119,7 +121,7 @@ Combined with the full 17k training dataset (currently only 3k samples used), th
 
 ## Tech stack
 
-**App:** Swift 6, SwiftUI, FoundationModels (Apple Intelligence 3B), MusicKit, DistributedNotificationCenter, NSPanel (custom floating notifications). Zero external dependencies.
+**App:** Swift 6.2, SwiftUI, FoundationModels (Apple Intelligence 3B), MusicKit, DistributedNotificationCenter, NSPanel (custom floating notifications), Last.fm API (scrobbling + loved tracks). Zero third-party dependencies — pure Apple frameworks + Last.fm REST API.
 
 **ML:** Python 3.14+, uv, anthropic SDK, rich. Evaluation uses Claude Sonnet as judge; training data generation uses Claude Haiku via Batch API.
 
@@ -139,11 +141,15 @@ For the metadata testing tool:
 xcodebuild -project app/Ficino.xcodeproj -scheme MusicContextGenerator -derivedDataPath ./build build
 ```
 
-**Optional:** create `app/Secrets.xcconfig` with a Genius API token for richer metadata. Without it, Genius context is silently skipped and the app falls back to MusicKit-only data.
+**Optional:** copy `app/Secrets.xcconfig.template` to `app/Secrets.xcconfig` and fill in credentials:
 
 ```
 GENIUS_ACCESS_TOKEN = your_token_here
+LASTFM_API_KEY = your_lastfm_api_key_here
+LASTFM_SHARED_SECRET = your_lastfm_shared_secret_here
 ```
+
+Without the Genius token, Genius context is silently skipped (MusicKit-only). Without Last.fm credentials, scrobbling is disabled.
 
 ### ML workspace
 
