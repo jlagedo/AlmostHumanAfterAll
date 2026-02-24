@@ -1,4 +1,8 @@
-
+<!-- HISTORICAL: This design doc describes an early "Fase 2" pipeline concept that was
+never implemented as written. The actual app uses MusicKit + Genius (not MusicBrainz/
+Wikipedia/Wikidata/Last.fm), PromptBuilder with [Section]...[End Section] blocks (not
+the scored-fact selection pipeline), and plain text output (not @Generable MusicInsights).
+Kept for reference on the original design thinking. -->
 
 import Foundation
 import FoundationModels

@@ -8,28 +8,20 @@ A macOS companion app for Apple Music that provides real-time music insights whi
 
 ## How it works
 
-1. Detect currently playing song via MusicKit
-2. Pre-fetch next song in queue
-3. Scrape data from APIs and web (MusicBrainz, Discogs, Setlist.fm, Genius, Wikipedia)
-4. Feed context to on-device AI model to generate curated text cards
-5. Display timed insights — no voice, no interruption
+1. Detect track change via `DistributedNotificationCenter` (`com.apple.Music.playerInfo`)
+2. Fetch metadata from MusicKit + Genius in parallel (both non-fatal)
+3. Assemble structured prompt from metadata (`[Section]...[End Section]` blocks)
+4. Generate commentary via on-device 3B model (`LanguageModelSession` + LoRA adapter)
+5. Show floating `NSPanel` notification with album art and commentary
+6. Scrobble to Last.fm after 50% or 240s of play time
 
 ## AI Architecture
 
 - **Apple Foundation Models** — 3B on-device model via Swift API
 - **LoRA adapter** — trained for the Ficino persona (music nerd friend tone)
 - **RAG pattern** — LoRA teaches persona/style, scraped data provides facts at runtime
-- **Training data** — 1,000–3,000 high-quality examples generated via Claude Sonnet Batch (~$15)
+- **Training data** — 3,000 high-quality examples generated via Claude Haiku Batch (~$15)
 - **No API costs at runtime** — fully on-device, free inference
-
-## Lenses (v2)
-
-Same friend, different focus. Separate LoRA adapters, same persona prompt:
-
-- **Default** — general trivia, curiosity, highlights
-- **Deep Dive** — historical context, cultural significance
-- **Studio** — recording techniques, production trivia, gear
-- **Lyrics** — meaning, poetry, storytelling
 
 ## Competitive Landscape
 

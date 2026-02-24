@@ -13,22 +13,22 @@ You are iterating on Ficino's on-device 3B model prompt — the instruction file
 ## Files
 
 - **Instruction files**: `ml/prompts/fm_instruction_v*.json` — system prompt versions
-- **Prompt template**: `ml/eval/gen_fm_prompt.py` — builds per-track prompts from context JSONL
-- **Runner script**: `ml/eval/run_fm.sh` — runs FMPromptRunner with current instruction file
-- **Ranking script**: `ml/eval/rank_output.py` — LLM-as-judge scoring (run manually by user)
-- **Ranking results**: `ml/eval/version_rank.md` — summary table across versions
-- **Ranking details**: `ml/eval/vrank/{version}_details.md` — per-response breakdown
+- **Prompt builder**: `ml/eval/build_prompts.py` — builds per-track prompts from context JSONL
+- **Runner script**: `ml/eval/run_model.sh` — runs FMPromptRunner with current instruction file
+- **Judge script**: `ml/eval/judge_output.py` — LLM-as-judge scoring (run manually by user)
+- **End-to-end**: `ml/eval/run_eval.py` — builds prompts → runs model → judges in one command
+- **Ranking results**: `ml/data/eval/version_rank.md` — summary table across versions
+- **Ranking details**: `ml/data/eval/vrank/{version}_details.md` — per-response breakdown
 - **Reference**: `docs/3b_prompt_guide.md` — Apple's prompt engineering guide for the 3B model
-- **App personality** (read-only, for reference): `app/MusicModel/Sources/MusicModel/Models/Personality.swift`
 
 ## Steps
 
 ### 1. Assess current state
 
-- Read the latest instruction file (check which version `run_fm.sh` points to)
-- Read the latest ranking results in `ml/eval/version_rank.md` and `ml/eval/vrank/` for per-response details
+- Read the latest instruction file (check which version `run_model.sh` points to)
+- Read the latest ranking results in `ml/data/eval/version_rank.md` and `ml/data/eval/vrank/` for per-response details
 - Identify failure modes from the ranking: check flags (P=preamble, H=hallucination, D=date-parrot, E=echo, C=CTA-parrot, M=misattribution), bottom 5, and per-dimension scores
-- Do NOT read raw output JSONL files or try to score responses yourself — that's what rank_output.py is for
+- Do NOT read raw output JSONL files or try to score responses yourself — that's what judge_output.py is for
 
 ### 2. Propose changes (STOP and ask)
 
@@ -37,15 +37,15 @@ You are iterating on Ficino's on-device 3B model prompt — the instruction file
 Include:
 - Summary of failure modes from the ranking data
 - What you'd change in the instruction file and why
-- Whether the prompt template (`gen_fm_prompt.py`) also needs changes
+- Whether the prompt template (`build_prompts.py`) also needs changes
 
 ### 3. Write the next version
 
 Once the user approves (or adjusts) the plan:
 
 - Create `ml/prompts/fm_instruction_vN.json` (increment version number)
-- Optionally edit `ml/eval/gen_fm_prompt.py` if the prompt template needs changes
-- `run_fm.sh` derives the instruction file from the version arg — no need to edit it
+- Optionally edit `ml/eval/build_prompts.py` if the prompt template needs changes
+- `run_model.sh` derives the instruction file from the version arg — no need to edit it
 
 Key principles (confirmed across v8–v15 iterations):
 - Numbered rules work significantly better than prose for the 3B model
@@ -59,24 +59,28 @@ Key principles (confirmed across v8–v15 iterations):
 ### 4. Regenerate and run
 
 ```bash
-cd ml && uv run python eval/gen_fm_prompt.py
-cd ml/eval && ./run_fm.sh vN -limit 10
+cd ml && uv run python eval/run_eval.py vN -l 10
+```
+
+Or run steps individually:
+```bash
+cd ml && uv run python eval/build_prompts.py
+cd ml/eval && ./run_model.sh vN -limit 10
 ```
 
 Use a 5-minute timeout for the runner — it's calling the on-device model.
-For full runs (94 prompts, dual-stage = 188 model calls), use a 5-minute timeout.
 
-### 5. Remind user to rank
+### 5. Remind user to judge
 
-After the runner completes, remind the user to run the ranking script **from a separate terminal** (it calls `claude -p` and cannot run inside Claude Code):
+After the runner completes, remind the user to run the judge script **from a separate terminal** (it calls `claude -p` and cannot run inside Claude Code):
 
 ```
 Run this in a separate terminal to score the output:
 
-cd ml/eval && python rank_output.py ../data/eval_output/output_vN_YYYYMMDD_HHMMSS.jsonl
+cd ml && uv run python eval/judge_output.py data/eval/output_vN_YYYYMMDD_HHMMSS.jsonl
 ```
 
-Use the actual filename from the runner output. Do NOT attempt to run rank_output.py yourself.
+Use the actual filename from the runner output. Do NOT attempt to run judge_output.py yourself.
 
 ### 6. Analyze results and recommend next steps
 
@@ -88,17 +92,15 @@ Once the user has run the ranking and the results are in `version_rank.md`:
 - Flag counts (especially H and M) are the most stable signal
 - Suggest another iteration with specific changes, or declare the version ready for a full run
 
-### Known issues to solve (as of v15)
+### Known issues resolved by LoRA (v18)
 
-- **Misattribution (11 flags)**: Model confuses sample credits with the main artist. The extraction step should distinguish "samples X by Y" from the song's own artist/content.
-- **Japanese/non-Latin names**: Model fabricates romanizations (米津玄師 → "Masashi Hamashi"). Names must pass through exactly as written — extraction and writing prompts should enforce this.
-- **Thin-context tracks**: When facts are sparse, the model pads with fabricated claims. The extraction NA→skip path helps but some still slip through.
+The v18 LoRA adapter (3,000 training samples) eliminated all failure flags — zero preambles, zero hallucinations, zero misattributions across 81 test tracks. Issues that were present in v15-v17 (misattribution, fabricated romanizations, thin-context padding) were all resolved by fine-tuning. Future prompt iterations may reintroduce some if the instruction changes significantly.
 
 ## Do NOT
 
 - Modify any Swift files — this workflow is ml-only. Changes go to the app later.
 - Delete previous instruction versions — keep them for comparison.
-- Run without `-limit` unless the user explicitly asks for a full run.
-- Run `rank_output.py` — it calls `claude -p` and cannot be nested inside Claude Code.
+- Run without `-l` (limit) unless the user explicitly asks for a full run.
+- Run `judge_output.py` — it calls `claude -p` and cannot be nested inside Claude Code.
 - Score or evaluate raw output JSONL yourself — always use the ranking results.
 - Use few-shot examples in instruction files — the 3B model copies them verbatim as fact.

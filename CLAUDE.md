@@ -89,11 +89,11 @@ Copy `app/Secrets.xcconfig.template` to `app/Secrets.xcconfig` and fill in the v
 ## Reference Docs (`docs/`)
 
 ### Project
-- `ficino.md` — Product overview, architecture, competitive landscape, cost structure
-- `ficino_prompt_design.md` — Prompt architecture for Ficino's on-device commentary generation
-- `lora_training_plan.md` — LoRA adapter training plan (data strategy, evaluation, deployment)
-- `music_context_pipeline.md` — Music data pipeline design (Fetch → Score → Select → Prompt) with Swift code
+- `ficino.md` — Product overview, competitive landscape, cost structure
 - `preprocessing_strategies.md` — MusicKit + Genius API schemas, extraction and compression strategies
+- `ficino_prompt_design.md` — **Historical:** early prompt architecture analysis and proposal (pre-LoRA)
+- `lora_training_plan.md` — **Historical:** original training plan (actual training diverged — 3k samples, plain text, MusicKit+Genius)
+- `music_context_pipeline.md` — **Historical:** early Fase 2 pipeline design (never implemented; app uses MusicKit+Genius, not Wikipedia/Wikidata/Last.fm)
 
 ### Apple FM Reference
 - `apple_fm_specs.md` — Apple Intelligence Foundation Models technical specification
