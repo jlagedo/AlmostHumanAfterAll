@@ -6,17 +6,16 @@ enum NotificationPosition: String {
 
 @MainActor
 final class PreferencesStore: ObservableObject {
-    private enum Key {
-        static let isPaused = "isPaused"
+    enum Key {
         static let skipThreshold = "skipThreshold"
         static let notificationDuration = "notificationDuration"
         static let notificationsEnabled = "notificationsEnabled"
         static let notificationPosition = "notificationPosition"
+        static let lastFmEnabled = "lastFmEnabled"
+        static let lastFmSessionKey = "lastFmSessionKey"
+        static let lastFmUsername = "lastFmUsername"
     }
 
-    @Published var isPaused: Bool {
-        didSet { UserDefaults.standard.set(isPaused, forKey: Key.isPaused) }
-    }
     @Published var skipThreshold: TimeInterval {
         didSet { UserDefaults.standard.set(skipThreshold, forKey: Key.skipThreshold) }
     }
@@ -30,9 +29,19 @@ final class PreferencesStore: ObservableObject {
         didSet { UserDefaults.standard.set(notificationPosition.rawValue, forKey: Key.notificationPosition) }
     }
 
+    // Last.fm
+    @Published var lastFmEnabled: Bool {
+        didSet { UserDefaults.standard.set(lastFmEnabled, forKey: Key.lastFmEnabled) }
+    }
+    @Published var lastFmSessionKey: String? {
+        didSet { UserDefaults.standard.set(lastFmSessionKey, forKey: Key.lastFmSessionKey) }
+    }
+    @Published var lastFmUsername: String? {
+        didSet { UserDefaults.standard.set(lastFmUsername, forKey: Key.lastFmUsername) }
+    }
+
     init() {
         let defaults = UserDefaults.standard
-        self.isPaused = defaults.bool(forKey: Key.isPaused)
         self.skipThreshold = defaults.object(forKey: Key.skipThreshold) as? TimeInterval ?? 5.0
         self.notificationDuration = defaults.object(forKey: Key.notificationDuration) as? TimeInterval ?? 30.0
         self.notificationsEnabled = defaults.object(forKey: Key.notificationsEnabled) as? Bool ?? true
@@ -42,5 +51,10 @@ final class PreferencesStore: ObservableObject {
         } else {
             self.notificationPosition = .topRight
         }
+
+        // Last.fm
+        self.lastFmEnabled = defaults.bool(forKey: Key.lastFmEnabled)
+        self.lastFmSessionKey = defaults.string(forKey: Key.lastFmSessionKey)
+        self.lastFmUsername = defaults.string(forKey: Key.lastFmUsername)
     }
 }

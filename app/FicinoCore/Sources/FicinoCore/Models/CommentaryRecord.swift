@@ -13,6 +13,7 @@ public struct CommentaryRecord: Codable, Sendable, Identifiable {
     public let appleMusicURL: URL?
     public let persistentID: String
     public var isFavorited: Bool
+    public var isScrobbled: Bool
     public var thumbnailData: Data?
 
     public init(
@@ -26,6 +27,7 @@ public struct CommentaryRecord: Codable, Sendable, Identifiable {
         appleMusicURL: URL?,
         persistentID: String,
         isFavorited: Bool = false,
+        isScrobbled: Bool = false,
         thumbnailData: Data? = nil
     ) {
         self.id = id
@@ -38,6 +40,7 @@ public struct CommentaryRecord: Codable, Sendable, Identifiable {
         self.appleMusicURL = appleMusicURL
         self.persistentID = persistentID
         self.isFavorited = isFavorited
+        self.isScrobbled = isScrobbled
         self.thumbnailData = thumbnailData
     }
 

@@ -4,5 +4,9 @@
 <dict>
 	<key>GeniusAccessToken</key>
 	<string>$(GENIUS_ACCESS_TOKEN)</string>
+	<key>LastFmAPIKey</key>
+	<string>$(LASTFM_API_KEY)</string>
+	<key>LastFmSharedSecret</key>
+	<string>$(LASTFM_SHARED_SECRET)</string>
 </dict>
 </plist>

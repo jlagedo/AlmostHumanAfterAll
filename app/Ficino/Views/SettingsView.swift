@@ -30,6 +30,48 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Last.fm") {
+                if let username = appState.preferences.lastFmUsername {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("Connected as")
+                        Link(username, destination: URL(string: "https://www.last.fm/user/\(username)")!)
+                    }
+
+                    Toggle("Scrobbling", isOn: $appState.preferences.lastFmEnabled)
+
+                    Button("Disconnect") {
+                        appState.disconnectLastFm()
+                    }
+                    .foregroundStyle(.red)
+                } else {
+                    Button("Connect to Last.fm") {
+                        appState.connectLastFm()
+                    }
+
+                    if appState.lastFmAuthInProgress {
+                        HStack(spacing: 6) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Waiting for authorization...")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if let error = appState.lastFmAuthError {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.yellow)
+                            Text(error)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+
             Section("Playback") {
                 HStack {
                     Slider(

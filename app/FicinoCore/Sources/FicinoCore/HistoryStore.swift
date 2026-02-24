@@ -18,6 +18,7 @@ final class HistoryEntry {
     var appleMusicURLString: String?
     var persistentID: String
     var isFavorited: Bool
+    var isScrobbled: Bool = false
     var thumbnailData: Data?
 
     init(from record: CommentaryRecord) {
@@ -31,6 +32,7 @@ final class HistoryEntry {
         self.appleMusicURLString = record.appleMusicURL?.absoluteString
         self.persistentID = record.persistentID
         self.isFavorited = record.isFavorited
+        self.isScrobbled = record.isScrobbled
         self.thumbnailData = record.thumbnailData
     }
 
@@ -46,6 +48,7 @@ final class HistoryEntry {
             appleMusicURL: appleMusicURLString.flatMap { URL(string: $0) },
             persistentID: persistentID,
             isFavorited: isFavorited,
+            isScrobbled: isScrobbled,
             thumbnailData: thumbnailData
         )
     }
@@ -218,6 +221,51 @@ public actor HistoryStore: ModelActor {
             emitUpdate()
         } catch {
             logger.error("Failed to fetch entry for deletion: \(error.localizedDescription)")
+        }
+    }
+
+    public func syncLovedTracks(_ lovedKeys: Set<String>) {
+        let descriptor = FetchDescriptor<HistoryEntry>()
+        do {
+            let entries = try modelContext.fetch(descriptor)
+            var changed = false
+            for entry in entries {
+                let key = "\(entry.artist.lowercased())\t\(entry.trackName.lowercased())"
+                let isLoved = lovedKeys.contains(key)
+                if entry.isFavorited != isLoved {
+                    entry.isFavorited = isLoved
+                    changed = true
+                    logger.debug("Sync: \(isLoved ? "loved" : "unloved") \"\(entry.trackName)\" by \(entry.artist)")
+                }
+            }
+            if changed {
+                try modelContext.save()
+                emitUpdate()
+                logger.info("Synced loved tracks with Last.fm")
+            } else {
+                logger.debug("Loved tracks already in sync")
+            }
+        } catch {
+            logger.error("Failed to sync loved tracks: \(error.localizedDescription)")
+        }
+    }
+
+    public func markScrobbled(id: UUID) {
+        var descriptor = FetchDescriptor<HistoryEntry>(
+            predicate: #Predicate { $0.entryID == id }
+        )
+        descriptor.fetchLimit = 1
+        do {
+            guard let entry = try modelContext.fetch(descriptor).first else { return }
+            entry.isScrobbled = true
+            do {
+                try modelContext.save()
+            } catch {
+                logger.error("Failed to save scrobble status: \(error.localizedDescription)")
+            }
+            emitUpdate()
+        } catch {
+            logger.error("Failed to fetch entry for scrobble update: \(error.localizedDescription)")
         }
     }
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import FicinoCore
 import os
 
@@ -16,24 +17,30 @@ final class AppState: ObservableObject {
     @Published var setupError: String?
 
     @Published var preferences = PreferencesStore()
+    @Published var lastFmAuthInProgress = false
+    @Published var lastFmAuthError: String?
 
     // MARK: - Services
 
     let coordinator: MusicCoordinator
     private(set) lazy var settingsWindowController = SettingsWindowController(appState: self)
+    private var preferencesSink: AnyCancellable?
 
     // MARK: - Lifecycle
 
     init(coordinator: MusicCoordinator? = nil) {
-        let c = coordinator ?? MusicCoordinator()
+        let sessionKey = UserDefaults.standard.string(forKey: PreferencesStore.Key.lastFmSessionKey)
+        let c = coordinator ?? MusicCoordinator(lastFmSessionKey: sessionKey)
         self.coordinator = c
         c.onStateUpdate = { [weak self] update in
             self?.apply(update)
         }
-    }
-
-    func startIfNeeded() {
-        coordinator.start(preferences: preferences)
+        // Forward PreferencesStore changes so SwiftUI views re-render
+        preferencesSink = preferences.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
+        // Start services eagerly — don't wait for the menu to be opened
+        c.start(preferences: preferences)
     }
 
     func stop() {
@@ -46,19 +53,27 @@ final class AppState: ObservableObject {
         settingsWindowController.showSettings()
     }
 
-    func regenerate() {
-        guard let track = currentTrack else { return }
-        currentComment = nil
-        errorMessage = nil
-        coordinator.regenerate(track: track, preferences: preferences)
-    }
-
     func toggleFavorite(id: UUID) {
         coordinator.toggleFavorite(id: id)
     }
 
     func deleteHistoryRecord(id: UUID) {
         coordinator.deleteHistoryRecord(id: id)
+    }
+
+    // MARK: - Last.fm
+
+    func connectLastFm() {
+        coordinator.startLastFmAuth()
+    }
+
+    func disconnectLastFm() {
+        coordinator.disconnectLastFm()
+        preferences.lastFmSessionKey = nil
+        preferences.lastFmUsername = nil
+        preferences.lastFmEnabled = false
+        lastFmAuthInProgress = false
+        lastFmAuthError = nil
     }
 
     // MARK: - State Updates
@@ -86,6 +101,20 @@ final class AppState: ObservableObject {
             setupError = msg
         case .clearError:
             errorMessage = nil
+        case .lastFmAuthStarted:
+            lastFmAuthInProgress = true
+            lastFmAuthError = nil
+        case .lastFmAuthCompleted(let username, let sessionKey):
+            lastFmAuthInProgress = false
+            lastFmAuthError = nil
+            preferences.lastFmUsername = username
+            preferences.lastFmSessionKey = sessionKey
+            preferences.lastFmEnabled = true
+            logger.info("Last.fm connected as \(username)")
+        case .lastFmAuthFailed(let msg):
+            lastFmAuthInProgress = false
+            lastFmAuthError = msg
+            logger.warning("Last.fm auth failed: \(msg)")
         }
     }
 }

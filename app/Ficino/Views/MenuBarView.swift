@@ -12,29 +12,6 @@ struct MenuBarView: View {
 
                 Spacer()
 
-                // Regenerate
-                Button {
-                    appState.regenerate()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .disabled(appState.currentTrack == nil || appState.isLoading)
-                .help("Regenerate commentary")
-
-                // Pause toggle
-                Button {
-                    appState.preferences.isPaused.toggle()
-                } label: {
-                    Image(systemName: appState.preferences.isPaused ? "pause.circle.fill" : "pause.circle")
-                        .font(.body)
-                        .foregroundStyle(appState.preferences.isPaused ? .orange : .secondary)
-                }
-                .buttonStyle(.plain)
-                .help(appState.preferences.isPaused ? "Resume" : "Pause")
-
                 // Settings gear
                 Button {
                     appState.openSettings()
@@ -84,9 +61,6 @@ struct MenuBarView: View {
                 }
                 return event
             }
-        }
-        .task {
-            appState.startIfNeeded()
         }
     }
 }

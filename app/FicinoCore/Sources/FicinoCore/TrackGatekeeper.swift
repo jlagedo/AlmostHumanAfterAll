@@ -5,11 +5,9 @@ private let logger = Logger(subsystem: "com.ficino", category: "TrackGatekeeper"
 
 public struct TrackGatekeeper: Sendable {
     public struct Configuration: Sendable {
-        public let isPaused: Bool
         public let skipThreshold: TimeInterval
 
-        public init(isPaused: Bool, skipThreshold: TimeInterval) {
-            self.isPaused = isPaused
+        public init(skipThreshold: TimeInterval) {
             self.skipThreshold = skipThreshold
         }
     }
@@ -29,11 +27,6 @@ public struct TrackGatekeeper: Sendable {
         playerState: String,
         configuration: Configuration
     ) -> Decision {
-        guard !configuration.isPaused else {
-            logger.debug("Paused, ignoring track change")
-            return .reject(reason: "paused")
-        }
-
         guard playerState == "Playing" else {
             logger.debug("State is '\(playerState)', ignoring (only handling Playing)")
             return .reject(reason: "not playing")

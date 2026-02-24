@@ -14,11 +14,14 @@ let package = Package(
     dependencies: [
         .package(path: "../MusicModel"),
         .package(path: "../MusicContext"),
+        .package(path: "../MusicTracker"),
     ],
     targets: [
         .target(
             name: "FicinoCore",
-            dependencies: ["MusicModel", "MusicContext"]
+            // MusicTracker is re-exported so the app target can link it transitively.
+            // FicinoCore itself doesn't use MusicTracker — the Ficino app target does.
+            dependencies: ["MusicModel", "MusicContext", "MusicTracker"]
         ),
     ]
 )

@@ -149,6 +149,13 @@ struct HistoryEntryView: View {
                 .opacity(isHovered ? 1 : 0)
                 .accessibilityHidden(false)
 
+                if entry.isScrobbled {
+                    Image(systemName: "dot.radiowaves.right")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .help("Scrobbled to Last.fm")
+                }
+
                 Text(entry.timestamp, style: .relative)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)

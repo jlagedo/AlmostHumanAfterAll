@@ -28,18 +28,12 @@ public actor FicinoCore {
         return try await runCommentary(request, updateCurrentTask: true)
     }
 
-    /// Regenerate commentary for a track without cancelling in-flight work.
-    public func regenerate(_ request: TrackRequest) async throws -> CommentaryResult {
-        try await runCommentary(request, updateCurrentTask: false)
-    }
-
     /// Evaluate whether a track change should trigger commentary.
     public func shouldProcess(
         trackID: String, playerState: String,
-        isPaused: Bool, skipThreshold: TimeInterval
+        skipThreshold: TimeInterval
     ) -> TrackGatekeeper.Decision {
         let config = TrackGatekeeper.Configuration(
-            isPaused: isPaused,
             skipThreshold: skipThreshold
         )
         return gatekeeper.evaluate(

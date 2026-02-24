@@ -83,7 +83,8 @@
       "Bash(uv venv:*)",
       "Bash(uv pip install:*)",
       "Bash(uv run:*)",
-      "WebFetch(domain:www.last.fm)"
+      "WebFetch(domain:www.last.fm)",
+      "WebFetch(domain:lastfm-docs.github.io)"
     ]
   }
 }
