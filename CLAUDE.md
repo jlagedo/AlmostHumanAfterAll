@@ -15,9 +15,9 @@ docs/         Shared reference material (Apple FM specs, prompt guides, training
 
 ## Architecture
 
-**Data flow:** Apple Music track change → `MusicListener` (DistributedNotificationCenter) → `MusicCoordinator.handleTrackChange()` → `FicinoCore.process()` → `MusicContextService` fetches metadata (MusicKit + Genius in parallel, both non-fatal) → `PromptBuilder` formats into `[Section]...[End Section]` blocks → `AppleIntelligenceService` generates commentary via `LanguageModelSession` + LoRA adapter → floating `NSPanel` notification shown → entry saved to history → `AppState` updated via callback.
+**Data flow:** Apple Music track change → `MusicListener` (DistributedNotificationCenter) → `MusicCoordinator.handleTrackChange()` → scrobble state machine (play/pause/stop → `ScrobbleTracker` timing → `LastFmService` submission) runs in parallel with → `TrackGatekeeper` filters duplicates/skips → `FicinoCore.process()` (prewarm + metadata fetch in parallel → `PromptBuilder` formats into `[Section]...[End Section]` blocks → `AppleIntelligenceService` generates commentary via `LanguageModelSession` + LoRA adapter) → entry saved to history → artwork fetched via MusicKit catalog search → `AppState` updated via callback → floating `NSPanel` notification shown.
 
-**Pattern:** MVVM with coordinator. `AppState` is the single `@StateObject` for views. `MusicCoordinator` owns all services (`MusicListener`, `FicinoCore`, `HistoryStore`, `NotificationService`) and pushes state updates to `AppState` via a `StateUpdate` enum callback. `CommentaryService` is dependency-injected into `FicinoCore`.
+**Pattern:** MVVM with coordinator. `AppState` is the single `@StateObject` for views. `MusicCoordinator` (`@MainActor`) owns all services (`MusicListener`, `FicinoCore`, `HistoryStore`, `NotificationService`, `LastFmService`, `ScrobbleTracker`) and pushes state updates to `AppState` via a `StateUpdate` enum callback. Services start eagerly at init. `CommentaryService` is dependency-injected into `FicinoCore`.
 
 ### App Targets
 
@@ -27,6 +27,7 @@ docs/         Shared reference material (Apple FM specs, prompt guides, training
 | **FicinoCore** | Swift package — orchestrates metadata fetch → commentary generation |
 | **MusicModel** | Swift package — AI layer (`CommentaryService` protocol, `AppleIntelligenceService`) |
 | **MusicContext** | Swift package — metadata providers (`MusicKitProvider`, `GeniusProvider`, `PromptBuilder`) |
+| **MusicTracker** | Swift package — Last.fm integration (`LastFmService`, `ScrobbleTracker`, `ScrobbleService` protocol) |
 | **MusicContextGenerator** | GUI + CLI testing tool for metadata fetch (`-p mk\|g <Artist> <Album> <Track>`) |
 | **FMPromptRunner** | CLI tool for ML eval pipeline — runs prompts through on-device model |
 
@@ -73,13 +74,17 @@ See `ml/docs/` for detailed guides: `eval_pipeline.md`, `training_pipeline.md`, 
 
 - **macOS 26+ only.** Verify API availability on macOS — do not assume iOS availability. `SystemMusicPlayer` (MusicKit) is explicitly unavailable on macOS.
 - **Never modify `.pbxproj` or any file inside `.xcodeproj`** — Xcode 16+ synchronized folders auto-detect file changes on disk. For structural changes (targets, build settings, frameworks), use Xcode GUI.
-- **Swift 6.2** with strict concurrency. All services use actor isolation (`FicinoCore`, `MusicContextService`, `MusicKitProvider`, `GeniusProvider`, `MusicBrainzProvider`, `RateLimiter`, `HistoryStore` are actors; `AppState`, `MusicCoordinator`, and `NotificationService` are `@MainActor`).
+- **Swift 6.2** with strict concurrency. All services use actor isolation (`FicinoCore`, `MusicContextService`, `MusicKitProvider`, `GeniusProvider`, `MusicBrainzProvider`, `RateLimiter`, `HistoryStore`, `LastFmService` are actors; `AppState`, `MusicCoordinator`, and `NotificationService` are `@MainActor`).
 - **App sandbox enabled** with `com.apple.security.network.client` and `com.apple.developer.foundation-model-adapter` entitlements.
 - **No test suite.** MusicModel and MusicContext have test targets but only stubs. Testing is manual via build and run.
 
 ## Secrets
 
-Genius API requires a token. Copy `app/Secrets.xcconfig.template` to `app/Secrets.xcconfig` and fill in `GENIUS_ACCESS_TOKEN`. This file is gitignored.
+Copy `app/Secrets.xcconfig.template` to `app/Secrets.xcconfig` and fill in the values. This file is gitignored.
+
+- `GENIUS_ACCESS_TOKEN` — Genius API token (required for enriched metadata)
+- `LASTFM_API_KEY` — Last.fm API key (required for scrobbling)
+- `LASTFM_SHARED_SECRET` — Last.fm shared secret (required for scrobbling)
 
 ## Reference Docs (`docs/`)
 
@@ -100,6 +105,7 @@ Genius API requires a token. Copy `app/Secrets.xcconfig.template` to `app/Secret
 
 ### Working Notes
 - `musickit_api_samples.md` — Raw MusicKit API output samples (Billie Jean, Bohemian Rhapsody)
+- `widget_plan.md` — Widget feature planning
 - `runpod_ssh_setup.md` — RunPod SSH and file transfer setup
 - `scratch.md` — Scratchpad (model output samples)
 - `testing_flow.md` — Testing commands
@@ -135,8 +141,8 @@ Follow these when writing or modifying Swift code in the app.
 - **`@Published` + `didSet` for UserDefaults.** Preferences pattern: `@Published var pref: T { didSet { UserDefaults.standard.set(...) } }`.
 
 ### Swift Packages & Module Boundaries
-- **One responsibility per package.** `MusicModel` = AI layer, `MusicContext` = metadata, `FicinoCore` = orchestration. Don't leak concerns across package boundaries.
-- **Dependencies flow downward.** `FicinoCore` depends on `MusicModel` + `MusicContext`. Neither `MusicModel` nor `MusicContext` depend on each other or on `FicinoCore`.
+- **One responsibility per package.** `MusicModel` = AI layer, `MusicContext` = metadata, `MusicTracker` = Last.fm scrobbling, `FicinoCore` = orchestration. Don't leak concerns across package boundaries.
+- **Dependencies flow downward.** `FicinoCore` depends on `MusicModel` + `MusicContext` + `MusicTracker` (re-exported for the app target). Neither leaf packages depend on each other or on `FicinoCore`.
 - **Platform minimums in Package.swift.** Always set `.macOS(.v26)` (or the correct minimum). Don't omit platform constraints.
 
 ### macOS-Specific

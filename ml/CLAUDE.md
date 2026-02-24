@@ -22,13 +22,14 @@ eval/          Evaluation pipeline
   build_prompts.py  Mirrors PromptBuilder.swift, builds JSONL from raw metadata
   judge_output.py   LLM-as-judge scoring (Claude Sonnet, 5 dimensions, max 15 pts)
   run_model.sh      Invokes FMPromptRunner (Swift CLI in app/FMPromptRunner/)
-  scrape_context.sh Scrapes metadata for eval tracks
+  scrape_clean.py   Scrapes and cleans metadata for eval tracks
 training/      LoRA fine-tuning via Anthropic Batch API
   batch_submit.py   Submit prompts to Anthropic Batch API
   batch_retrieve.py Retrieve completed batch results
   prep_splits.py    Prepare train/eval splits
   quality_check.py  Validate training data quality
   join_batches.py   Combine multiple batch outputs
+  shuffle.py        Shuffle training data
   prompt/           Instruction files for training data generation
 docs/          ML-specific guides
   eval_pipeline.md          How the eval pipeline works
