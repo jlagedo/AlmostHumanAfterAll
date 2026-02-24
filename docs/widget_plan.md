@@ -61,25 +61,18 @@ These require the Xcode GUI since they modify the project file:
 
 ### Edited files
 
-**`app/Ficino/Models/AppState.swift`**
+**`app/Ficino/Services/MusicCoordinator.swift`**
 
-Two insertion points — add `WidgetDataWriter.write(...)` after the thumbnail update in both methods:
+Add `WidgetDataWriter.write(...)` in `MusicCoordinator` after the thumbnail update in the track change handler:
 
-1. **`handleTrackChange()`** (after line 207, before line 210):
-   ```swift
-   let thumbnailData = CommentaryRecord.makeThumbnail(from: artwork)
-   if let thumbnailData {
-       await core.updateThumbnail(id: result.id, data: thumbnailData)
-   }
-   // NEW: write to widget
-   WidgetDataWriter.write(
-       trackName: track.name, artist: track.artist,
-       album: track.album, commentary: result.commentary,
-       thumbnailData: thumbnailData
-   )
-   ```
-
-2. **`regenerate()`** (after line 275, before line 277) — same pattern
+```swift
+// After thumbnail update, write to widget
+WidgetDataWriter.write(
+    trackName: track.name, artist: track.artist,
+    album: track.album, commentary: result.commentary,
+    thumbnailData: thumbnailData
+)
+```
 
 ---
 

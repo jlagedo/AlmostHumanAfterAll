@@ -1,3 +1,8 @@
+<!-- HISTORICAL: This was the original LoRA training plan. The actual training used
+3,000 samples (not 750) via Claude Haiku Batch API, MusicKit+Genius metadata (not
+MusicBrainz/Wikipedia/Wikidata/Last.fm), plain text responses (not @Generable JSON),
+and the training pipeline in ml/training/. Kept for reference on the design rationale. -->
+
 # Fase 3 — LoRA Adapter Training for Music Insights
 
 ## The Thesis

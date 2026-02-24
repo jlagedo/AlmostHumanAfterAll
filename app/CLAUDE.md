@@ -1,6 +1,6 @@
 # App — CLAUDE.md
 
-macOS menu bar app that listens to Apple Music track changes and delivers AI-powered commentary via Apple Intelligence. Runs as a menu bar utility (LSUIElement=true, no dock icon). Zero external dependencies — pure Apple frameworks.
+macOS menu bar app that listens to Apple Music track changes and delivers AI-powered commentary via Apple Intelligence. Scrobbles to Last.fm. Runs as a menu bar utility (LSUIElement=true, no dock icon). Zero external dependencies — pure Apple frameworks.
 
 ## Build & Run
 
@@ -48,6 +48,12 @@ MusicContext/            Metadata providers package
 ├── Models/                SongMetadata, MetadataResult, MusicBrainsData, API response types
 └── Networking/            RateLimiter
 
+MusicTracker/            Last.fm scrobbling package
+├── Protocols/             ScrobbleService protocol
+├── Providers/             LastFmService (auth, scrobble, now playing, love/unlove)
+├── Models/                ScrobbleTracker, LastFmAPIModels, LastFmError
+└── Networking/            LastFmSigning (HMAC request signing)
+
 MusicContextGenerator/   Standalone testing app (GUI + CLI mode)
 
 FMPromptRunner/          CLI tool for ML eval pipeline (reads JSONL file, runs FoundationModels)
@@ -59,7 +65,7 @@ ficino_music.fmadapter/  LoRA adapter metadata (rank 32, speculative decoding: 5
 
 **Pattern:** MVVM with coordinator. `AppState` is the single `@StateObject` for views. `MusicCoordinator` (`@MainActor`) owns all services and pushes state updates to `AppState` via a `StateUpdate` enum callback. Views never interact with services directly — they call methods on `AppState`, which delegates to `MusicCoordinator`.
 
-**Key flow:** `MusicListener` detects track change via `DistributedNotificationCenter` → `MusicCoordinator.handleTrackChange()` → `TrackGatekeeper` filters duplicates/skips → `FicinoCore.process()` (prewarm + metadata fetch in parallel → PromptBuilder formats into section blocks → CommentaryService generates commentary → saved to HistoryStore) → artwork fetched via MusicKit catalog search → `AppState` updated via callback → floating NSPanel notification shown.
+**Key flow:** `MusicListener` detects track change via `DistributedNotificationCenter` → `MusicCoordinator.handleTrackChange()` → scrobble state machine runs (play/pause/stop → `ScrobbleTracker` timing → `LastFmService` submission) + `TrackGatekeeper` filters duplicates/skips → `FicinoCore.process()` (prewarm + metadata fetch in parallel → PromptBuilder formats into section blocks → CommentaryService generates commentary → saved to HistoryStore) → artwork fetched via MusicKit catalog search → `AppState` updated via callback → floating NSPanel notification shown.
 
 ### FicinoCore
 
@@ -88,6 +94,14 @@ Three metadata providers coordinated by `MusicContextService`:
 
 **MusicContextGenerator** can run as GUI or CLI: `-p mk|g|mb <Artist> <Album> <Track>`, `-p mk --id <CatalogID>`, `-p mk --playlist <Name>`, `-p mk --charts`, or `-ce <csv> [--skip N]` for batch context extraction.
 
+### MusicTracker
+
+Last.fm integration package, used by `MusicCoordinator` (not by `FicinoCore` directly — re-exported via FicinoCore's `Package.swift` for transitive linking):
+- **`ScrobbleService`** protocol — interface for scrobbling backends
+- **`LastFmService`** (`actor`) — Last.fm API client: auth flow (request token → browser auth → poll for session), scrobble, now playing, love/unlove tracks, fetch loved tracks for sync. Signed requests via `LastFmSigning`. Offline retry queue (up to 50 pending scrobbles, persisted to disk).
+- **`ScrobbleTracker`** (`struct`) — Pure timing logic for Last.fm scrobble rules: tracks >30s duration, scrobble after 50% or 240s of play time (whichever is less). Handles play/pause/resume state, accumulated play time across pauses.
+- `MusicCoordinator` owns the scrobble state machine: on track change → `ScrobbleTracker.trackStarted()` + `LastFmService.updateNowPlaying()`; schedules a timer for the scrobble point; on pause/stop → appropriate state transitions. Favorite toggles sync with Last.fm love/unlove. Loved tracks synced from Last.fm on startup.
+
 ### FMPromptRunner
 
 CLI tool used by the ML eval pipeline (`ml/eval/run_model.sh`). Takes three file arguments: `<prompts.jsonl> <instructions.json> <output.jsonl>`. Supports `-l N` (limit) and `-t TEMP` (temperature) flags. Loads the LoRA adapter from bundle if present. Part of the Xcode project (not a Swift package).
@@ -107,19 +121,25 @@ Custom floating `NSPanel` windows (not system UNUserNotificationCenter), hosted 
 
 ## Secrets
 
-Genius API requires a token. Copy `Secrets.xcconfig.template` to `Secrets.xcconfig` and fill in `GENIUS_ACCESS_TOKEN`. This file is gitignored.
+Copy `Secrets.xcconfig.template` to `Secrets.xcconfig` and fill in the values. This file is gitignored.
+
+- `GENIUS_ACCESS_TOKEN` — Genius API token (required for enriched metadata)
+- `LASTFM_API_KEY` — Last.fm API key (required for scrobbling)
+- `LASTFM_SHARED_SECRET` — Last.fm shared secret (required for scrobbling)
 
 ## Key Details
 
 - App sandbox **enabled** with `com.apple.security.network.client` and `foundation-model-adapter` entitlements
 - `FicinoApp.swift` is the `@main` entry using `MenuBarExtra` scene API
+- Services start eagerly at init (no lazy startup or pause feature)
 - MusicKit authorization requested at startup for catalog search
 - Album artwork from MusicKit catalog search (URL-based, loaded via URLSession)
-- History capped at 200 entries (SwiftData via `HistoryStore` actor) with JPEG-compressed thumbnails (48pt, 0.7 quality). Capacity enforcement evicts oldest non-favorited entries.
+- History capped at 200 entries (SwiftData via `HistoryStore` actor) with JPEG-compressed thumbnails (48pt, 0.7 quality). Capacity enforcement evicts oldest non-favorited entries. `HistoryStore` emits updates via `AsyncStream<[CommentaryRecord]>`.
 - System prompt and personality are defined in the ML workspace instruction files (`ml/prompts/fm_instruction_v*.json`), shipped via the LoRA adapter
-- **Preferences** via `UserDefaults` (`PreferencesStore`): `isPaused`, `skipThreshold`, `notificationDuration`, `notificationsEnabled`, `notificationPosition` (topRight/topLeft/bottomRight/bottomLeft)
+- **Preferences** via `UserDefaults` (`PreferencesStore`): `skipThreshold`, `notificationDuration`, `notificationsEnabled`, `notificationPosition` (topRight/topLeft/bottomRight/bottomLeft), `lastFmEnabled`, `lastFmSessionKey`, `lastFmUsername`
 - Skip threshold: only generates commentary for tracks played longer than threshold
 - `TrackGatekeeper` (struct in FicinoCore) handles duplicate detection and skip threshold logic
+- **Last.fm integration:** Scrobbling with play-time tracking (50% or 240s threshold), now playing updates, loved track sync (favorites ↔ Last.fm loved tracks), browser-based auth flow with polling. Scrobble status tracked per history entry (`isScrobbled` field).
 - All services use **actor isolation** for thread safety
 - `AppState`, `MusicCoordinator`, and `NotificationService` are `@MainActor`-isolated
 - `SettingsWindowController` manages a standalone `NSWindow` for settings, toggling activation policy between `.regular` and `.accessory`

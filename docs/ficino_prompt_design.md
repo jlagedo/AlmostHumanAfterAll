@@ -1,3 +1,10 @@
+<!-- HISTORICAL: This doc describes the original prompt architecture analysis and proposal.
+The "proposed" architecture in section 5 was broadly adopted but evolved significantly:
+few-shot examples were removed (the 3B model copies them verbatim), the prompt format
+uses [Section]...[End Section] blocks via PromptBuilder, and the LoRA adapter (v18) now
+handles tone/style instead of prompt-level personality. Personality.swift no longer exists.
+Kept for design rationale. -->
+
 # Apple Intelligence Prompt Specification — Ficino
 
 > Prompt design for the on-device 3B Foundation Model, based on Apple's WWDC25 guidance (sessions #248, #286, #301) and the [Tech Report 2025](https://arxiv.org/abs/2507.13575).
