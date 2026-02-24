@@ -511,8 +511,14 @@ final class MusicCoordinator {
     nonisolated func fetchArtwork(name: String, artist: String) async -> NSImage? {
         var request = MusicCatalogSearchRequest(term: "\(artist) \(name)", types: [Song.self])
         request.limit = 1
-        guard let song = try? await request.response().songs.first,
-              let url = song.artwork?.url(width: 600, height: 600) else { return nil }
+        let song: Song?
+        do {
+            song = try await request.response().songs.first
+        } catch {
+            logger.debug("MusicKit artwork search failed: \(error.localizedDescription)")
+            return nil
+        }
+        guard let song, let url = song.artwork?.url(width: 600, height: 600) else { return nil }
         return await loadImage(from: url)
     }
 

@@ -340,11 +340,20 @@ public actor LastFmService: ScrobbleService {
     }
 
     private static func loadPending() -> [PendingScrobble] {
-        guard let data = try? Data(contentsOf: pendingFileURL),
-              let scrobbles = try? JSONDecoder().decode([PendingScrobble].self, from: data) else {
+        let url = pendingFileURL
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            // File doesn't exist on first launch — not an error
             return []
         }
-        return scrobbles
+        do {
+            return try JSONDecoder().decode([PendingScrobble].self, from: data)
+        } catch {
+            logger.warning("Failed to decode pending scrobbles: \(error.localizedDescription)")
+            return []
+        }
     }
 
     // MARK: - Networking
