@@ -122,11 +122,11 @@ public actor GeniusProvider {
         do {
             (data, response) = try await session.data(for: request)
         } catch {
-            throw MusicContextError.networkError(underlying: error)
+            throw MusicContextError.networkError(description: error.localizedDescription)
         }
 
         guard let http = response as? HTTPURLResponse else {
-            throw MusicContextError.networkError(underlying: URLError(.badServerResponse))
+            throw MusicContextError.networkError(description: URLError(.badServerResponse).localizedDescription)
         }
 
         if http.statusCode == 429 {
@@ -143,7 +143,7 @@ public actor GeniusProvider {
             return try decoder.decode(T.self, from: data)
         } catch {
             let body = String(data: data, encoding: .utf8)
-            throw MusicContextError.decodingError(underlying: error, body: body)
+            throw MusicContextError.decodingError(description: error.localizedDescription, body: body)
         }
     }
 

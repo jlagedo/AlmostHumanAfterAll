@@ -2,24 +2,24 @@ import Foundation
 
 // MARK: - Errors
 
-public enum MusicContextError: Error, CustomStringConvertible {
-    case networkError(underlying: Error)
+public enum MusicContextError: LocalizedError, Sendable {
+    case networkError(description: String)
     case httpError(statusCode: Int, body: String?)
-    case decodingError(underlying: Error, body: String?)
+    case decodingError(description: String, body: String?)
     case rateLimited(retryAfterSeconds: Int?)
     case noResults(query: String)
     case invalidURL(String)
     case appleMusicUnavailable
     case invalidCatalogID(String)
 
-    public var description: String {
+    public var errorDescription: String? {
         switch self {
-        case .networkError(let err):
-            return "Network error: \(err.localizedDescription)"
+        case .networkError(let description):
+            return "Network error: \(description)"
         case .httpError(let code, let body):
             return "HTTP \(code)\(body.map { ": \($0.prefix(200))" } ?? "")"
-        case .decodingError(let err, let body):
-            return "Decoding error: \(err.localizedDescription)\(body.map { "\nBody: \($0.prefix(300))" } ?? "")"
+        case .decodingError(let description, let body):
+            return "Decoding error: \(description)\(body.map { "\nBody: \($0.prefix(300))" } ?? "")"
         case .rateLimited(let retry):
             return "Rate limited\(retry.map { " (retry after \($0)s)" } ?? "")"
         case .noResults(let query):
@@ -195,11 +195,11 @@ public actor MusicBrainzProvider {
         do {
             (data, response) = try await session.data(from: url)
         } catch {
-            throw MusicContextError.networkError(underlying: error)
+            throw MusicContextError.networkError(description: error.localizedDescription)
         }
 
         guard let http = response as? HTTPURLResponse else {
-            throw MusicContextError.networkError(underlying: URLError(.badServerResponse))
+            throw MusicContextError.networkError(description: URLError(.badServerResponse).localizedDescription)
         }
 
         if http.statusCode == 429 {
@@ -216,7 +216,7 @@ public actor MusicBrainzProvider {
             return try decoder.decode(T.self, from: data)
         } catch {
             let body = String(data: data, encoding: .utf8)
-            throw MusicContextError.decodingError(underlying: error, body: body)
+            throw MusicContextError.decodingError(description: error.localizedDescription, body: body)
         }
     }
 
@@ -244,7 +244,8 @@ public actor MusicBrainzProvider {
         }
 
         // Fall back to all recordings
-        return Self.bestRecording(from: recordings, durationMs: durationMs) ?? recordings.first!
+        // recordings is guaranteed non-empty by caller's guard
+        return Self.bestRecording(from: recordings, durationMs: durationMs) ?? recordings[0]
     }
 
     /// Pick the best recording: if we have a known duration, prefer the closest match. Otherwise, highest score then longest.
